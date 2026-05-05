@@ -1,0 +1,39 @@
+# Python / uv
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.python-version
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Environment / secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*_rsa
+
+# Local SQLite databases produced by the tool
+*.sqlite
+*.sqlite3
+*.db
+
+# Claude Code: project-shared instructions (.claude/skills, .claude/commands)
+# ARE committed because they are part of the project's agent context.
+# Local-only state is not.
+.claude/settings.local.json
