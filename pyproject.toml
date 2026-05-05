@@ -1,0 +1,42 @@
+[project]
+name = "gitsweeper"
+version = "0.0.0"
+description = "Mine and analyse GitHub data — sweep a repo, surface patterns."
+readme = "README.md"
+license = { text = "EUPL-1.2" }
+authors = [{ name = "Mark Westerweel", email = "mark@conduction.nl" }]
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "polars>=1.0",
+    "typer>=0.12",
+    "rich>=13.0",
+]
+
+[project.scripts]
+gitsweeper = "gitsweeper.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-httpx>=0.30",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gitsweeper"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
