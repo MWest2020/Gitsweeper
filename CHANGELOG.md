@@ -27,10 +27,31 @@ once there is working code worth tagging.
   in this project. `.claude/settings.local.json` is local-only and
   excluded via `.gitignore`.
 - `2026-05-05` — `CHANGELOG.md` and `.gitignore` added.
-
-### Notes
-
-- No application code yet. Specs only — implementation lands as
-  follow-up changes, each going through the standard OpenSpec change
-  workflow (`openspec/changes/<change-name>/` with proposal, design
-  if non-trivial, and tasks).
+- `2026-05-05` — `pyproject.toml` (uv-managed, Python 3.11+, EUPL-1.2),
+  `src/gitsweeper/` package skeleton, locked dependencies committed.
+- `2026-05-06` — v1 implementation landed:
+  - `lib/storage.py` — SQLite via stdlib `sqlite3`, portable SQL, schema
+    matches the project.md sketch (repositories / pull_requests /
+    pr_first_responses) including the nullable `owner_namespace` seam.
+  - `lib/github_client.py` — synchronous httpx REST client. Pagination
+    via `Link rel=next`. `GITHUB_TOKEN` from env (warns once when
+    absent). Primary rate-limit sleeps until `X-RateLimit-Reset`;
+    secondary 429/Retry-After retried up to 5 times.
+  - `lib/rendering.py` — `AnalysisResult` dataclass, `Renderer`
+    Protocol, `CLITableRenderer` (default), `JSONRenderer` (`--json`).
+    Renderers contain no analysis logic.
+  - `capabilities/pr_throughput.py` — fetch + persist orchestration,
+    time-to-merge percentiles (median / p25 / p75 / p95 / max in days)
+    over merged PRs only, `--since YYYY-MM-DD` validation,
+    `compute_first_response` (opt-in, caches per-PR comment lookups).
+  - `cli.py` — typer app with three commands: `fetch`, `throughput`,
+    `first-response`. Default cache at
+    `$XDG_STATE_HOME/gitsweeper/gitsweeper.sqlite`.
+  - `tests/` — 34 unit tests (storage, github_client with httpx mock
+    transport, rendering, pr_throughput math, CLI). `ruff` clean.
+- `2026-05-06` — Smoke run against `nextcloud/app-certificate-requests`
+  (unauthenticated, 1000 PRs cached). Time-to-merge over full history:
+  median 1.65 days, p95 16.80 days, max 111.93 days (count = 780
+  merged). With `--since 2025-01-01`: median 2.08 days, p95 17.11 days
+  (count = 184). The right-skewed tail confirms the design choice for
+  percentiles over the mean.
