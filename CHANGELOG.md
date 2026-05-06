@@ -55,3 +55,14 @@ once there is working code worth tagging.
   merged). With `--since 2025-01-01`: median 2.08 days, p95 17.11 days
   (count = 184). The right-skewed tail confirms the design choice for
   percentiles over the mean.
+- `2026-05-06` — Authenticated rerun (via `gh auth token`) added the
+  `first-response` analysis: repo-wide median 1.08 days, p95 14.52
+  days, max 273.90 days; 787 / 1000 got a non-author comment.
+- `2026-05-06` — Conduction-specific report written to
+  `docs/examples/nextcloud-csr-report-2026-05-06.md`. Used the cache
+  plus a one-off enrichment (close-actor via the issue-events API) to
+  separate self-pulled PRs from maintainer-closed ones. Result:
+  Conduction's 80% effective response rate matches the repo norm of
+  87% (within noise on N=15); the real gap is first-response latency
+  (3.59 days median for Conduction vs 1.08 repo-wide), consistent with
+  a batched-pickup pattern.
