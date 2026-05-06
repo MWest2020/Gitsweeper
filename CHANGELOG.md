@@ -81,3 +81,30 @@ once there is working code worth tagging.
   first-response gap: weekend-trap ~0.9d, off-hours ~0.3d, residual
   ~1.5d (batch-pickup effect). The residual is what a `@mention`
   pickup signal would close.
+- `2026-05-06` — Output reports moved out of version control:
+  `docs/examples/` is now in `.gitignore`. The reports remain on
+  disk locally; their session-time content lives in commits 0d06c18,
+  66de3d2, and df541f0 for audit.
+- `2026-05-06` — OpenSpec change `reusable-process-report` proposed,
+  implemented, and archived. The session's ad-hoc analysis pipeline
+  is now first-class:
+  - `--author <login>` flag added to `throughput` and
+    `first-response` (case-insensitive match).
+  - New CLI `gitsweeper patterns` for day-of-week / hour-of-day
+    distributions; replaces the inline Python from the report
+    appendices.
+  - New capability `pr-classification`: enriches closed-without-merge
+    PRs with the close-event actor (via the issue-events endpoint,
+    which actually populates the data the `pulls` endpoint omits) and
+    classifies each as self-pulled, maintainer-closed, or unknown.
+    Persisted in the new `pr_close_actors` table; runs cached on
+    re-invocation. New CLI `gitsweeper classify`.
+  - New renderer `markdown` registered in `report-rendering`.
+  - New capability `pr-process-report`: composes volume, throughput,
+    first-response, classification, and temporal patterns into a
+    single markdown document. New CLI `gitsweeper report
+    <repo> [--author] [--since] [--refresh] [--out PATH]`. Refuses
+    on empty cache unless `--refresh`.
+  - Tests: 60 total (was 34), all green; ruff clean.
+  - Archive merged the deltas into baseline specs; four capabilities
+    now live under `openspec/specs/`.

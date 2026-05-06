@@ -100,6 +100,13 @@ class GitHubClient:
         params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
         yield from self._paginate(self._base_url + path, params)
 
+    def list_issue_events(
+        self, owner: str, repo: str, issue_number: int
+    ) -> Iterator[dict[str, Any]]:
+        path = f"/repos/{owner}/{repo}/issues/{issue_number}/events"
+        params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
+        yield from self._paginate(self._base_url + path, params)
+
     def _paginate(
         self, url: str, params: dict[str, Any] | None
     ) -> Iterator[dict[str, Any]]:

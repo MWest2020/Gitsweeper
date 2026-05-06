@@ -181,3 +181,115 @@ def test_result_has_required_columns_and_metadata(conn: sqlite3.Connection) -> N
     assert metric_names == ["count", "p25", "median", "p75", "p95", "max"]
     assert result.metadata["repo"] == "octocat/hello"
     assert "generated_at" in result.metadata
+
+
+# ---- author filter --------------------------------------------------------
+
+def test_throughput_author_filter_narrows_population(conn: sqlite3.Connection) -> None:
+    client = FakeClient(prs=[
+        _pr(1, created="2025-01-01T00:00:00Z", merged="2025-01-02T00:00:00Z", author="alice"),
+        _pr(2, created="2025-01-01T00:00:00Z", merged="2025-01-04T00:00:00Z", author="bob"),
+        _pr(3, created="2025-01-01T00:00:00Z", merged="2025-01-09T00:00:00Z", author="alice"),
+    ])
+    summary = pr_throughput.fetch_and_persist(conn, client, "o", "r")
+    result = pr_throughput.compute_throughput(
+        conn, summary.repo_id, "o", "r", author="alice"
+    )
+    by_metric = dict(result.rows)
+    assert by_metric["count"] == 2  # PRs 1 and 3
+    assert result.metadata["author"] == "alice"
+
+
+def test_throughput_author_filter_is_case_insensitive(conn: sqlite3.Connection) -> None:
+    client = FakeClient(prs=[
+        _pr(1, created="2025-01-01T00:00:00Z", merged="2025-01-02T00:00:00Z", author="MWest2020"),
+    ])
+    summary = pr_throughput.fetch_and_persist(conn, client, "o", "r")
+    result = pr_throughput.compute_throughput(
+        conn, summary.repo_id, "o", "r", author="mwest2020"
+    )
+    by_metric = dict(result.rows)
+    assert by_metric["count"] == 1
+
+
+def test_throughput_author_with_no_match_is_empty_not_error(conn: sqlite3.Connection) -> None:
+    client = FakeClient(prs=[
+        _pr(1, created="2025-01-01T00:00:00Z", merged="2025-01-02T00:00:00Z", author="alice"),
+    ])
+    summary = pr_throughput.fetch_and_persist(conn, client, "o", "r")
+    result = pr_throughput.compute_throughput(
+        conn, summary.repo_id, "o", "r", author="ghost"
+    )
+    by_metric = dict(result.rows)
+    assert by_metric["count"] == 0
+    assert result.metadata["author"] == "ghost"
+
+
+def test_temporal_patterns_dow_and_hour_buckets(conn: sqlite3.Connection) -> None:
+    # Two PRs created Mon 2025-01-06 morning, one Fri 2025-01-10 evening.
+    client = FakeClient(
+        prs=[
+            _pr(1, created="2025-01-06T08:00:00Z", merged="2025-01-07T10:00:00Z"),  # Mon 08
+            _pr(2, created="2025-01-06T13:00:00Z", merged="2025-01-08T13:00:00Z"),  # Mon 13
+            _pr(3, created="2025-01-10T20:00:00Z", merged="2025-01-13T09:00:00Z"),  # Fri 20
+        ],
+        comments_by_pr={
+            1: [_comment("2025-01-06T09:00:00Z", "bob")],
+            2: [_comment("2025-01-07T10:00:00Z", "bob")],
+            3: [_comment("2025-01-13T09:00:00Z", "bob")],   # Mon 09 (response)
+        },
+    )
+    summary = pr_throughput.fetch_and_persist(conn, client, "o", "r")
+    pr_throughput.compute_first_response(conn, client, summary.repo_id, "o", "r")
+    result = pr_throughput.compute_temporal_patterns(
+        conn, summary.repo_id, "o", "r"
+    )
+    by_metric = dict(result.rows)
+    assert by_metric["submissions_dow_Mon"] == 2
+    assert by_metric["submissions_dow_Fri"] == 1
+    assert by_metric["submissions_hour_08"] == 1
+    assert by_metric["submissions_hour_13"] == 1
+    assert by_metric["submissions_hour_20"] == 1
+    assert by_metric["responses_dow_Mon"] == 2
+    assert by_metric["responses_hour_09"] == 2
+    # Median first-response when submitted on Friday: only PR3 = 2.54d
+    assert by_metric["median_frt_days_when_submitted_Fri"] == pytest.approx(
+        2.5416666666666665, rel=1e-3
+    )
+    # Days with no submissions report None as median
+    assert by_metric["median_frt_days_when_submitted_Tue"] is None
+
+
+def test_temporal_patterns_author_filter(conn: sqlite3.Connection) -> None:
+    client = FakeClient(prs=[
+        _pr(1, created="2025-01-06T08:00:00Z", author="alice"),
+        _pr(2, created="2025-01-06T08:00:00Z", author="bob"),
+    ])
+    summary = pr_throughput.fetch_and_persist(conn, client, "o", "r")
+    result = pr_throughput.compute_temporal_patterns(
+        conn, summary.repo_id, "o", "r", author="alice"
+    )
+    by_metric = dict(result.rows)
+    assert by_metric["submissions_dow_Mon"] == 1   # only alice's
+    assert result.metadata["author"] == "alice"
+    assert result.metadata["submissions_total"] == 1
+
+
+def test_first_response_author_filter(conn: sqlite3.Connection) -> None:
+    client = FakeClient(
+        prs=[
+            _pr(1, created="2025-01-01T00:00:00Z", merged="2025-01-05T00:00:00Z", author="alice"),
+            _pr(2, created="2025-01-01T00:00:00Z", merged="2025-01-09T00:00:00Z", author="bob"),
+        ],
+        comments_by_pr={
+            1: [_comment("2025-01-02T00:00:00Z", "carol")],
+            2: [_comment("2025-01-03T00:00:00Z", "carol")],
+        },
+    )
+    summary = pr_throughput.fetch_and_persist(conn, client, "o", "r")
+    result = pr_throughput.compute_first_response(
+        conn, client, summary.repo_id, "o", "r", author="alice"
+    )
+    by_metric = dict(result.rows)
+    assert by_metric["count"] == 1
+    assert result.metadata["author"] == "alice"

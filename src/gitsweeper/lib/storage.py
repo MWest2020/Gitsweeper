@@ -50,6 +50,13 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         fetched_at        TEXT    NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS pr_close_actors (
+        pr_id        INTEGER PRIMARY KEY REFERENCES pull_requests(id),
+        actor        TEXT,
+        fetched_at   TEXT    NOT NULL
+    )
+    """,
 )
 
 
@@ -144,20 +151,20 @@ def list_pull_requests(
     conn: sqlite3.Connection,
     repo_id: int,
     merged_since: str | None = None,
+    author: str | None = None,
 ) -> list[sqlite3.Row]:
-    """Return PR rows. If merged_since is given, only PRs with
-    merged_at >= merged_since are returned (string compare on ISO 8601)."""
-    if merged_since is None:
-        return conn.execute(
-            "SELECT * FROM pull_requests WHERE repo_id = ? ORDER BY number",
-            (repo_id,),
-        ).fetchall()
-    return conn.execute(
-        "SELECT * FROM pull_requests "
-        "WHERE repo_id = ? AND merged_at IS NOT NULL AND merged_at >= ? "
-        "ORDER BY number",
-        (repo_id, merged_since),
-    ).fetchall()
+    """Return PR rows. `merged_since` filters merged_at lexicographically;
+    `author` matches case-insensitively against the stored author login."""
+    sql = "SELECT * FROM pull_requests WHERE repo_id = ?"
+    params: list = [repo_id]
+    if merged_since is not None:
+        sql += " AND merged_at IS NOT NULL AND merged_at >= ?"
+        params.append(merged_since)
+    if author is not None:
+        sql += " AND LOWER(author) = LOWER(?)"
+        params.append(author)
+    sql += " ORDER BY number"
+    return conn.execute(sql, params).fetchall()
 
 
 def upsert_first_response(
@@ -185,22 +192,71 @@ def list_first_responses(
     conn: sqlite3.Connection,
     repo_id: int,
     merged_since: str | None = None,
+    author: str | None = None,
 ) -> list[sqlite3.Row]:
     """Return joined PR + first-response rows for PRs in a repo. Includes
     rows where pr_first_responses.pr_id is NULL (no first-response computed
     yet) so callers can distinguish 'not yet fetched' from 'no response'."""
-    base = (
+    sql = (
         "SELECT pr.id AS pr_id, pr.number, pr.author, pr.created_at, "
-        "       pr.merged_at, fr.first_response_at, fr.responder, "
+        "       pr.merged_at, pr.closed_at, "
+        "       fr.first_response_at, fr.responder, "
         "       fr.fetched_at AS fr_fetched_at "
         "FROM pull_requests pr "
         "LEFT JOIN pr_first_responses fr ON fr.pr_id = pr.id "
-        "WHERE pr.repo_id = ? "
+        "WHERE pr.repo_id = ?"
     )
-    if merged_since is None:
-        return conn.execute(base + "ORDER BY pr.number", (repo_id,)).fetchall()
-    return conn.execute(
-        base + "AND pr.merged_at IS NOT NULL AND pr.merged_at >= ? "
-        "ORDER BY pr.number",
-        (repo_id, merged_since),
-    ).fetchall()
+    params: list = [repo_id]
+    if merged_since is not None:
+        sql += " AND pr.merged_at IS NOT NULL AND pr.merged_at >= ?"
+        params.append(merged_since)
+    if author is not None:
+        sql += " AND LOWER(pr.author) = LOWER(?)"
+        params.append(author)
+    sql += " ORDER BY pr.number"
+    return conn.execute(sql, params).fetchall()
+
+
+def upsert_close_actor(
+    conn: sqlite3.Connection,
+    pr_id: int,
+    actor: str | None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO pr_close_actors (pr_id, actor, fetched_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT (pr_id) DO UPDATE SET
+            actor      = excluded.actor,
+            fetched_at = excluded.fetched_at
+        """,
+        (pr_id, actor, _utcnow_iso()),
+    )
+    conn.commit()
+
+
+def list_close_actors(
+    conn: sqlite3.Connection,
+    repo_id: int,
+    author: str | None = None,
+) -> list[sqlite3.Row]:
+    """Return joined PR + close-actor rows for closed-without-merge PRs.
+    Includes rows where pr_close_actors.pr_id is NULL so callers can
+    distinguish 'not yet enriched' from 'enriched, actor unknown'."""
+    sql = (
+        "SELECT pr.id AS pr_id, pr.number, pr.author, "
+        "       pr.created_at, pr.closed_at, "
+        "       ca.actor AS close_actor, "
+        "       ca.fetched_at AS ca_fetched_at "
+        "FROM pull_requests pr "
+        "LEFT JOIN pr_close_actors ca ON ca.pr_id = pr.id "
+        "WHERE pr.repo_id = ? "
+        "  AND pr.merged_at IS NULL "
+        "  AND pr.closed_at IS NOT NULL"
+    )
+    params: list = [repo_id]
+    if author is not None:
+        sql += " AND LOWER(pr.author) = LOWER(?)"
+        params.append(author)
+    sql += " ORDER BY pr.number"
+    return conn.execute(sql, params).fetchall()

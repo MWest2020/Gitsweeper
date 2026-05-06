@@ -56,9 +56,29 @@ class JSONRenderer:
         out.write("\n")
 
 
+class MarkdownRenderer:
+    def render(self, result: AnalysisResult, stream: TextIO | None = None) -> None:
+        out = stream or sys.stdout
+        out.write(f"## {result.title}\n\n")
+        if result.columns and result.rows:
+            header = "| " + " | ".join(result.columns) + " |"
+            sep = "| " + " | ".join("---" for _ in result.columns) + " |"
+            out.write(header + "\n")
+            out.write(sep + "\n")
+            for row in result.rows:
+                cells = [_format_md_cell(v) for v in row]
+                out.write("| " + " | ".join(cells) + " |\n")
+        if result.metadata:
+            out.write("\n")
+            for key, value in result.metadata.items():
+                out.write(f"- **{key}**: {_format_md_cell(value)}\n")
+        out.write("\n")
+
+
 _RENDERERS: dict[str, type[Renderer]] = {
     "table": CLITableRenderer,
     "json": JSONRenderer,
+    "markdown": MarkdownRenderer,
 }
 
 
@@ -77,6 +97,15 @@ def _format_cell(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.2f}"
     return str(value)
+
+
+def _format_md_cell(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, float):
+        return f"{value:.2f}"
+    text = str(value)
+    return text.replace("|", "\\|")
 
 
 def _json_default(value: Any) -> Any:

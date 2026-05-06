@@ -14,7 +14,8 @@ from pathlib import Path
 
 import typer
 
-from gitsweeper.capabilities import pr_throughput
+from gitsweeper.capabilities import pr_classification, pr_throughput
+from gitsweeper.capabilities import process_report as _process_report
 from gitsweeper.lib import storage
 from gitsweeper.lib.github_client import GitHubClient
 from gitsweeper.lib.rendering import get_renderer
@@ -81,6 +82,9 @@ def throughput(
     since: str | None = typer.Option(
         None, "--since", help="Lower bound on merge date (YYYY-MM-DD UTC)"
     ),
+    author: str | None = typer.Option(
+        None, "--author", help="Restrict to PRs by this GitHub login (case-insensitive)"
+    ),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
     db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
 ) -> None:
@@ -90,7 +94,9 @@ def throughput(
     db = db_path or _default_db_path()
     conn = _open_db(db)
     repo_id = storage.get_or_create_repository(conn, owner, name)
-    result = pr_throughput.compute_throughput(conn, repo_id, owner, name, since=since_iso)
+    result = pr_throughput.compute_throughput(
+        conn, repo_id, owner, name, since=since_iso, author=author
+    )
     _renderer_for(json_out).render(result)
 
 
@@ -99,6 +105,9 @@ def first_response(
     repo: str = typer.Argument(..., help="GitHub owner/repo"),
     since: str | None = typer.Option(
         None, "--since", help="Lower bound on merge date (YYYY-MM-DD UTC)"
+    ),
+    author: str | None = typer.Option(
+        None, "--author", help="Restrict reporting to PRs by this GitHub login"
     ),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
     db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
@@ -111,9 +120,106 @@ def first_response(
     repo_id = storage.get_or_create_repository(conn, owner, name)
     with GitHubClient.from_env() as client:
         result = pr_throughput.compute_first_response(
-            conn, client, repo_id, owner, name, since=since_iso
+            conn, client, repo_id, owner, name, since=since_iso, author=author
         )
     _renderer_for(json_out).render(result)
+
+
+@app.command()
+def patterns(
+    repo: str = typer.Argument(..., help="GitHub owner/repo"),
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on response date (YYYY-MM-DD UTC)"
+    ),
+    author: str | None = typer.Option(
+        None, "--author", help="Restrict to PRs by this GitHub login"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Day-of-week and hour-of-day patterns for submissions and responses."""
+    owner, name = _split_repo(repo)
+    since_iso = _validate_since(since)
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    repo_id = storage.get_or_create_repository(conn, owner, name)
+    result = pr_throughput.compute_temporal_patterns(
+        conn, repo_id, owner, name, author=author, since=since_iso
+    )
+    _renderer_for(json_out).render(result)
+
+
+@app.command()
+def classify(
+    repo: str = typer.Argument(..., help="GitHub owner/repo"),
+    author: str | None = typer.Option(
+        None, "--author", help="Restrict reporting to PRs by this GitHub login"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Categorise closed-without-merge PRs as self-pulled vs maintainer-closed.
+
+    Costs one API call per uncached closed-without-merge PR; cached on
+    subsequent runs.
+    """
+    owner, name = _split_repo(repo)
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    repo_id = storage.get_or_create_repository(conn, owner, name)
+    with GitHubClient.from_env() as client:
+        summary = pr_classification.enrich_close_actors(
+            conn, client, repo_id, owner, name
+        )
+    if summary.fetched:
+        typer.echo(
+            f"Enriched {summary.fetched} PR(s); {summary.skipped_cached} already cached.",
+            err=True,
+        )
+    result = pr_classification.compute_classification(
+        conn, repo_id, owner, name, author=author
+    )
+    _renderer_for(json_out).render(result)
+
+
+@app.command()
+def report(
+    repo: str = typer.Argument(..., help="GitHub owner/repo"),
+    author: str | None = typer.Option(
+        None, "--author", help="Restrict every section to PRs by this GitHub login"
+    ),
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on dates (YYYY-MM-DD UTC)"
+    ),
+    refresh: bool = typer.Option(
+        False, "--refresh", help="Fetch + enrich before composing the report"
+    ),
+    out: Path | None = typer.Option(
+        None, "--out", help="Write the markdown report to this path instead of stdout"
+    ),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Compose a single shareable markdown process report."""
+    owner, name = _split_repo(repo)
+    since_iso = _validate_since(since)
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    try:
+        with GitHubClient.from_env() as client:
+            markdown = _process_report.generate_report(
+                conn, client, owner, name,
+                author=author, since=since_iso, refresh=refresh,
+            )
+    except _process_report.CacheEmpty as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(markdown, encoding="utf-8")
+        typer.echo(f"Wrote {out}", err=True)
+    else:
+        typer.echo(markdown, nl=False)
 
 
 def main() -> None:  # pragma: no cover - thin wrapper for entrypoint scripts

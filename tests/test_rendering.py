@@ -9,6 +9,7 @@ from gitsweeper.lib.rendering import (
     AnalysisResult,
     CLITableRenderer,
     JSONRenderer,
+    MarkdownRenderer,
     get_renderer,
 )
 
@@ -78,3 +79,46 @@ def test_json_and_table_render_same_semantic_content(sample_result: AnalysisResu
 def test_get_renderer_returns_correct_implementations() -> None:
     assert isinstance(get_renderer("table"), CLITableRenderer)
     assert isinstance(get_renderer("json"), JSONRenderer)
+    assert isinstance(get_renderer("markdown"), MarkdownRenderer)
+
+
+def test_markdown_renderer_emits_heading_table_and_metadata(sample_result: AnalysisResult) -> None:
+    out = io.StringIO()
+    MarkdownRenderer().render(sample_result, stream=out)
+    text = out.getvalue()
+    # Heading
+    lines = text.splitlines()
+    first_nonblank = next(line for line in lines if line.strip())
+    assert first_nonblank == "## time-to-merge (days)"
+    # Table header + separator
+    assert "| metric | value |" in text
+    assert "| --- | --- |" in text
+    # Values
+    assert "| median | 3.50 |" in text
+    assert "| p95 | 14.20 |" in text
+    assert "| max | — |" in text
+    # Metadata block
+    assert "- **repo**: octocat/hello-world" in text
+
+
+def test_markdown_renderer_escapes_pipe_characters() -> None:
+    result = AnalysisResult(
+        title="t",
+        columns=["k", "v"],
+        rows=[["pipe-in-value", "a|b"]],
+        metadata={},
+    )
+    out = io.StringIO()
+    MarkdownRenderer().render(result, stream=out)
+    text = out.getvalue()
+    assert "a\\|b" in text  # pipe escaped so it doesn't break the table
+
+
+def test_existing_renderers_unchanged_after_markdown_added(sample_result: AnalysisResult) -> None:
+    table_out = io.StringIO()
+    CLITableRenderer().render(sample_result, stream=table_out)
+    json_out = io.StringIO()
+    JSONRenderer().render(sample_result, stream=json_out)
+    # Smoke: still produce output, no exceptions, JSON still parses.
+    assert "median" in table_out.getvalue()
+    assert json.loads(json_out.getvalue())["title"] == "time-to-merge (days)"

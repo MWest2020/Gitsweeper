@@ -86,12 +86,16 @@ def compute_throughput(
     owner: str,
     name: str,
     since: str | None = None,
+    author: str | None = None,
 ) -> AnalysisResult:
     """Compute time-to-merge percentiles for merged PRs in the cache.
 
     `since` must already be an ISO 8601 string (use `parse_since` to
-    validate user input first)."""
-    rows = storage.list_pull_requests(conn, repo_id, merged_since=since)
+    validate user input first). `author` filters by GitHub login,
+    case-insensitively."""
+    rows = storage.list_pull_requests(
+        conn, repo_id, merged_since=since, author=author
+    )
     merged = [
         _hours_between(r["created_at"], r["merged_at"]) / 24.0
         for r in rows
@@ -99,12 +103,14 @@ def compute_throughput(
     ]
     series = pl.Series("days", merged, dtype=pl.Float64)
     stats = _percentiles(series)
+    title_scope = f" by {author}" if author else ""
     return _result_from_stats(
-        title=f"time-to-merge for {owner}/{name} (days)",
+        title=f"time-to-merge for {owner}/{name}{title_scope} (days)",
         stats=stats,
         repo=f"{owner}/{name}",
         since=since,
         considered=len(rows),
+        extra_metadata={"author": author} if author else None,
     )
 
 
@@ -115,9 +121,13 @@ def compute_first_response(
     owner: str,
     name: str,
     since: str | None = None,
+    author: str | None = None,
 ) -> AnalysisResult:
     """Ensure first-response data is cached for every PR in scope, then
     compute percentiles over the populated rows."""
+    # Always enrich for *all* PRs in repo (not just author-filtered) so
+    # cache stays useful for other slices. The reporting cut applies
+    # author/since at the analysis step.
     pr_rows = storage.list_pull_requests(conn, repo_id, merged_since=since)
     cached = {r["pr_id"]: r for r in storage.list_first_responses(conn, repo_id)}
 
@@ -125,13 +135,15 @@ def compute_first_response(
         pr_id = int(pr["id"])
         if pr_id in cached and cached[pr_id]["fr_fetched_at"] is not None:
             continue
-        author = pr["author"]
+        pr_author = pr["author"]
         first_at, responder = _first_non_author_comment(
-            client.list_issue_comments(owner, name, int(pr["number"])), author
+            client.list_issue_comments(owner, name, int(pr["number"])), pr_author
         )
         storage.upsert_first_response(conn, pr_id, first_at, responder)
 
-    joined = storage.list_first_responses(conn, repo_id, merged_since=since)
+    joined = storage.list_first_responses(
+        conn, repo_id, merged_since=since, author=author
+    )
     durations: list[float] = []
     no_response = 0
     for r in joined:
@@ -142,13 +154,17 @@ def compute_first_response(
 
     series = pl.Series("days", durations, dtype=pl.Float64)
     stats = _percentiles(series)
+    title_scope = f" by {author}" if author else ""
+    extra: dict = {"no_response_yet": no_response}
+    if author:
+        extra["author"] = author
     return _result_from_stats(
-        title=f"time-to-first-response for {owner}/{name} (days)",
+        title=f"time-to-first-response for {owner}/{name}{title_scope} (days)",
         stats=stats,
         repo=f"{owner}/{name}",
         since=since,
         considered=len(joined),
-        extra_metadata={"no_response_yet": no_response},
+        extra_metadata=extra,
     )
 
 
@@ -195,9 +211,95 @@ def _result_from_stats(
     )
 
 
+DAYS_OF_WEEK = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _parse_iso(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def compute_temporal_patterns(
+    conn: sqlite3.Connection,
+    repo_id: int,
+    owner: str,
+    name: str,
+    *,
+    author: str | None = None,
+    since: str | None = None,
+) -> AnalysisResult:
+    """Day-of-week and hour-of-day distributions for submissions and
+    first-responses, plus median first-response by submission DOW.
+
+    The result has one row per metric so the markdown / JSON renderers
+    can format it the same way they format throughput statistics.
+    """
+    pr_rows = storage.list_pull_requests(conn, repo_id, author=author)
+    fr_rows = storage.list_first_responses(conn, repo_id, author=author)
+
+    submissions_dow = [0] * 7
+    submissions_hour = [0] * 24
+    for r in pr_rows:
+        ts = _parse_iso(r["created_at"])
+        submissions_dow[ts.weekday()] += 1
+        submissions_hour[ts.hour] += 1
+
+    response_dow = [0] * 7
+    response_hour = [0] * 24
+    median_frt_by_dow_inputs: list[list[float]] = [[] for _ in range(7)]
+    for r in fr_rows:
+        if r["first_response_at"] is None:
+            continue
+        if since is not None and r["first_response_at"] < since:
+            continue
+        rts = _parse_iso(r["first_response_at"])
+        response_dow[rts.weekday()] += 1
+        response_hour[rts.hour] += 1
+        sub_dow = _parse_iso(r["created_at"]).weekday()
+        days = (rts - _parse_iso(r["created_at"])).total_seconds() / 86400.0
+        median_frt_by_dow_inputs[sub_dow].append(days)
+
+    rows: list[list] = []
+    for i, day in enumerate(DAYS_OF_WEEK):
+        rows.append([f"submissions_dow_{day}", submissions_dow[i]])
+    for i, day in enumerate(DAYS_OF_WEEK):
+        rows.append([f"responses_dow_{day}", response_dow[i]])
+    for i, day in enumerate(DAYS_OF_WEEK):
+        vals = median_frt_by_dow_inputs[i]
+        median = (
+            float(pl.Series(vals, dtype=pl.Float64).quantile(0.5, interpolation="linear"))
+            if vals
+            else None
+        )
+        rows.append([f"median_frt_days_when_submitted_{day}", median])
+    for h in range(24):
+        rows.append([f"submissions_hour_{h:02d}", submissions_hour[h]])
+    for h in range(24):
+        rows.append([f"responses_hour_{h:02d}", response_hour[h]])
+
+    metadata: dict = {
+        "repo": f"{owner}/{name}",
+        "since": since,
+        "submissions_total": len(pr_rows),
+        "responses_total": sum(response_dow),
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    if author:
+        metadata["author"] = author
+
+    title_scope = f" by {author}" if author else ""
+    return AnalysisResult(
+        title=f"temporal patterns for {owner}/{name}{title_scope}",
+        columns=["metric", "value"],
+        rows=rows,
+        metadata=metadata,
+    )
+
+
 __all__ = [
+    "DAYS_OF_WEEK",
     "FetchSummary",
     "compute_first_response",
+    "compute_temporal_patterns",
     "compute_throughput",
     "fetch_and_persist",
     "parse_since",
