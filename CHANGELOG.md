@@ -85,6 +85,10 @@ once there is working code worth tagging.
   `docs/examples/` is now in `.gitignore`. The reports remain on
   disk locally; their session-time content lives in commits 0d06c18,
   66de3d2, and df541f0 for audit.
+- `2026-05-06` — Output convention finalised: caches under `cache/`
+  (matches `*.sqlite`), reports under `docs/examples/`. Both
+  gitignored. Smoke runs no longer dump into `/tmp`. README and
+  `.gitignore` updated to make this the documented convention.
 - `2026-05-06` — OpenSpec change `reusable-process-report` proposed,
   implemented, and archived. The session's ad-hoc analysis pipeline
   is now first-class:

@@ -28,14 +28,18 @@ Thumbs.db
 *.key
 *_rsa
 
-# Local SQLite databases produced by the tool
+# Local SQLite databases produced by the tool. The conventional
+# location for these is the repo-local `cache/` directory; any
+# `.sqlite` anywhere in the tree is also ignored as a safety net.
+cache/
 *.sqlite
 *.sqlite3
 *.db
 
 # Output reports / sample analyses produced by the tool. These are
 # run-specific artefacts (timestamped per snapshot), not source. Keep
-# them locally for sharing, but do not version them.
+# them locally for sharing — under `docs/examples/` is the convention
+# — but do not version them.
 docs/examples/
 
 # Claude Code: project-shared instructions (.claude/skills, .claude/commands)
