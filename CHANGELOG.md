@@ -73,3 +73,11 @@ once there is working code worth tagging.
   het vrijwel direct goed en wordt het snel opgepikt. Repo-breed is de
   pickup juist snel (~1d); de "niet vaak genoeg gekeken"-uitspraak
   slaat alleen op onze slice, niet op het proces als geheel.
+- `2026-05-06` — Day-of-week / hour-of-day appendix added to both
+  reports. Repo-wide pattern: Friday submissions wait 4× longer than
+  Mon–Thu (median 2.95d vs 0.71d) — the weekend-trap; activity is
+  concentrated 08:00–16:00 UTC (EU work hours). Conduction-side: 41%
+  of submissions are Fri/Sat, 32% are 19–20 UTC. Decomposed the 3.3×
+  first-response gap: weekend-trap ~0.9d, off-hours ~0.3d, residual
+  ~1.5d (batch-pickup effect). The residual is what a `@mention`
+  pickup signal would close.

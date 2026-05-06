@@ -296,6 +296,156 @@ gitsweeper-CLI.
 
 ---
 
+## Bijlage — dag- en uurpatronen
+
+Het "wachtrij-diepte"-effect uit de TL;DR is geen pure willekeur.
+Drie elkaar versterkende patronen verklaren het grootste deel van
+Conduction's 3,3× first-response-gap. Geen ervan is op zichzelf
+beslissend; samen verklaren ze het merendeel van het verschil.
+
+### 1. Maintainers werken weekdagen, met sterke Mon→Fri afval
+
+Dag-van-week-verdeling van alle 787 first-responses (UTC):
+
+```
+Mon  26,4%  ████████████████████████   ← grootste dag
+Tue  20,6%  ██████████████████
+Wed  16,4%  ██████████████
+Thu  19,1%  █████████████████
+Fri  13,6%  ████████████              ← weekday-laagtepunt
+Sat   1,7%  █
+Sun   2,3%  ██
+```
+
+Vrijdag is de lichtste werkdag, ongeveer de helft van het volume
+van maandag. Weekenden zijn praktisch leeg (samen 4%).
+
+Hetzelfde patroon zit in merges: Mon 26,4%, Fri 14,5%, weekend
+2,6%. Submissions zijn daarentegen vrijwel vlak over de weekdagen
+(Mon 17,4% tot Fri 15,1%) met een matige weekend-dip (Sat-Sun ~9%).
+Die asymmetrie — vlakke submissions, gepiekte responses — is de
+weekend-val-rekensom: Friday-submissies blijven hangen.
+
+### 2. Dag-van-indiening bepaalt de wachttijd
+
+Mediaan first-response per dag waarop de PR werd ingediend (repo-
+breed):
+
+| Ingediend op | n | Mediaan first-response (dagen) | p95 |
+|---|---|---|---|
+| Mon | 130 | 0,71 | 21,82 |
+| Tue | 115 | 0,74 | 20,58 |
+| Wed | 135 | 0,77 | 11,07 |
+| Thu | 140 | 0,76 | 13,31 |
+| **Fri** | **112** | **2,95** | **14,20** |
+| Sat | 74 | 2,25 | 22,94 |
+| Sun | 81 | 1,37 | 10,89 |
+
+Vrijdag indienen betekent ~4× langer wachten dan Mon–Thu (2,95d
+vs 0,71–0,77d mediaan). Zaterdag-submissies wachten ongeveer
+hetzelfde; zondag is sneller dan zaterdag omdat maandag ze inhaalt.
+
+### 3. Uur-van-dag — EU-werktijden domineren
+
+First-responses per uur-van-dag (UTC):
+
+```
+00  ██                                 0,9%
+07  ███████████                        3,9%
+08  ████████████████████████████████   13,3%   ← ochtendpiek (09:00 CET)
+09  ██████████████████████████          8,8%
+10  ███████████████████████             7,8%
+11  █████████████████                   6,0%
+12  ██████████████████                  6,2%
+13  █████████████████████████████████  11,1%   ← na-lunch-piek
+14  ██████████████████████              7,6%
+15  ███████████████████████             7,8%
+16  ██████████████████                  6,1%
+17  ████████                            2,7%
+18  ███████                             2,4%
+19  ███████████                         3,8%
+20  █████████████                       4,4%
+21  ████████                            2,9%
+```
+
+Het gros van de activiteit zit in 08:00–16:00 UTC (09:00–17:00 CET,
+of 10:00–18:00 CEST). Dit suggereert sterk een EU-based maintainer-
+team. Submissions buiten dat venster — dus 's avonds of in het
+weekend (CET/CEST) — wachten automatisch tot de volgende ochtend
+op zijn minst.
+
+### 4. Conduction's submission-timing valt in slechte slots
+
+```
+MWest2020 submission-dag (n=22):
+  Mon   9,1%
+  Tue  40,9%  ████████████████████████   ← Conduction's piek
+  Wed   9,1%
+  Thu   0,0%
+  Fri  22,7%  █████████████              ← weekend-val-dag
+  Sat  18,2%  ██████████                 ← gegarandeerd meerdaagse wacht
+  Sun   0,0%
+
+→ 41% (Fri + Sat) gaat het weekend in
+```
+
+```
+MWest2020 submission-uur (UTC, n=22):
+  08  ██████████████████████████████   27,3%   ← 09:00 CET, gezond
+  09  █████████████████████████        22,7%   ← 10:00 CET, gezond
+  19  ███████████████                  13,6%   ← 21:00 CET, na werktijd
+  20  ████████████████████             18,2%   ← 22:00 CET, na werktijd
+
+→ 32% buiten EU-werktijden ingediend
+```
+
+### 5. Per maintainer is de week-activiteit ongelijk
+
+```
+mgallien     (n=297): Mon 25%, Tue 26%, Wed 14%, Thu 16%, Fri 18%
+camilasan    (n= 15): voornamelijk Thu (53%), wat Tue/Wed (40%)
+GretaD       (n= 18): Thu (50%), Wed (28%)
+tobiasKaminsky (n=1): Tue
+```
+
+`mgallien` is het consistentst over de week en doet 38% van alle
+responses; `camilasan` en `GretaD` zijn donderdag-zwaar. Voor de
+Conduction-queue specifiek doen `mgallien` en `camilasan` samen 10
+van de 12 reacties die we krijgen — en hun beschikbaarheids-
+patronen verschillen.
+
+### Hoeveel van het gat verklaart dit?
+
+Ruwe decompositie van Conduction's 3,3× first-response-vertraging:
+
+- **Weekend-val-submissies (Fri/Sat = 41% van onze PRs):** tegen de
+  repo-brede kost van ~2,2 extra dagen per stuk, draagt dit ruwweg
+  0,9 dagen bij aan onze 2,5-daagse overschrijding van de repo-
+  mediaan.
+- **Off-hours-submissies (32% in 19–20 UTC):** een fractie van een
+  dag per stuk, samen ongeveer 0,2–0,3 dagen.
+- **Batch-pickup-effect (zichtbaar op Tue-submissies, waar
+  Conduction's mediaan ~3,0d is vs de repo-Tue-mediaan 0,74d):**
+  de resterende ~1,5+ dagen die niet door kalender-effecten worden
+  verklaard. Dat is het deel dat een `@mention`-style pickup-
+  signaal zou wegnemen.
+
+De eerste twee zijn submitter-side workflow (geen Fri-Sat-avonden
+indienen). De derde is de inhoudelijke vraag in het gesprek: maak
+Conduction-batches op submission-tijd zichtbaar zodat ze niet door
+de normale poll-cadans wachten.
+
+### Praktische richtlijnen uit dit alles
+
+| Knop | Kost ons | Verwachte besparing |
+|---|---|---|
+| Stop met Fri/Sat indienen (uitstellen tot Mon ochtend UTC) | Klein (een dag vertraging aan onze kant) | ~1,5 dagen van onze first-response-mediaan af |
+| Stop met indienen om 19–20 UTC (uitstellen tot 08–09 UTC) | Triviaal | ~0,5 dagen |
+| Pickup-signaal (`@mention` bij ready-batch) | Verwaarloosbaar voor maintainers | ~1,5 dagen (sluit de residu) |
+| Stop met duplicate-batch-submissions | Lokale discipline | Maakt de data schoner, geen first-response-impact |
+
+---
+
 *De Engelstalige versie van dit rapport staat in
 [`nextcloud-csr-report-2026-05-06.md`](./nextcloud-csr-report-2026-05-06.md)
 in dezelfde map.*

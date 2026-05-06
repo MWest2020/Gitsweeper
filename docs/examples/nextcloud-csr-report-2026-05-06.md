@@ -280,3 +280,149 @@ The Conduction-specific cuts and the close-actor enrichment that fed
 the "self-pulled vs maintainer-closed" split were one-off SQL queries
 against the local cache; they are not (yet) part of the gitsweeper
 CLI.
+
+---
+
+## Appendix — day-of-week and hour-of-day patterns
+
+The "queue depth" effect referenced in the TL;DR is not pure
+randomness. Three reinforcing patterns explain most of Conduction's
+3.3× first-response gap. None is decisive on its own; together they
+account for the majority of the delta.
+
+### 1. Maintainers work weekdays, with a strong Mon→Fri taper
+
+Day-of-week distribution of all 787 first-responses (UTC):
+
+```
+Mon  26.4%  ████████████████████████   ← biggest day
+Tue  20.6%  ██████████████████
+Wed  16.4%  ██████████████
+Thu  19.1%  █████████████████
+Fri  13.6%  ████████████              ← weekday low
+Sat   1.7%  █
+Sun   2.3%  ██
+```
+
+Friday is the lightest weekday, doing about half the volume of
+Monday. Weekends are effectively dark (4% combined).
+
+The same pattern shows up in merges: Mon 26.4%, Fri 14.5%, weekend
+2.6%. Submissions, in contrast, are almost flat across weekdays
+(Mon 17.4% to Fri 15.1%) with a moderate weekend dip (Sat-Sun ~9%).
+That asymmetry — flat submissions, peaked responses — is the
+weekend-trap math: Friday submissions get caught.
+
+### 2. Submission-day determines wait time
+
+Median first-response by the day the PR was submitted (repo-wide):
+
+| Submitted on | n | Median first-response (days) | p95 |
+|---|---|---|---|
+| Mon | 130 | 0.71 | 21.82 |
+| Tue | 115 | 0.74 | 20.58 |
+| Wed | 135 | 0.77 | 11.07 |
+| Thu | 140 | 0.76 | 13.31 |
+| **Fri** | **112** | **2.95** | **14.20** |
+| Sat | 74 | 2.25 | 22.94 |
+| Sun | 81 | 1.37 | 10.89 |
+
+Submitting on Friday means waiting ~4× longer than Mon–Thu (2.95d
+vs 0.71–0.77d median). Saturday submissions wait roughly the same;
+Sunday is faster than Saturday because Monday catches them.
+
+### 3. Hour-of-day — EU work hours dominate
+
+First responses by hour-of-day (UTC):
+
+```
+00  ██                                 0.9%
+07  ███████████                        3.9%
+08  ████████████████████████████████   13.3%   ← morning peak (09:00 CET)
+09  ██████████████████████████          8.8%
+10  ███████████████████████             7.8%
+11  █████████████████                   6.0%
+12  ██████████████████                  6.2%
+13  █████████████████████████████████  11.1%   ← post-lunch peak
+14  ██████████████████████              7.6%
+15  ███████████████████████             7.8%
+16  ██████████████████                  6.1%
+17  ████████                            2.7%
+18  ███████                             2.4%
+19  ███████████                         3.8%
+20  █████████████                       4.4%
+21  ████████                            2.9%
+```
+
+The bulk of activity sits in 08:00–16:00 UTC (09:00–17:00 CET, or
+10:00–18:00 CEST). This strongly suggests an EU-based maintainer
+team. Submissions outside that window — i.e. evenings or weekends
+in CET/CEST — automatically wait until the next morning at minimum.
+
+### 4. Conduction's submission timing falls in poor slots
+
+```
+MWest2020 submission day-of-week (n=22):
+  Mon   9.1%
+  Tue  40.9%  ████████████████████████   ← Conduction's spike
+  Wed   9.1%
+  Thu   0.0%
+  Fri  22.7%  █████████████              ← weekend-trap day
+  Sat  18.2%  ██████████                 ← guaranteed multi-day wait
+  Sun   0.0%
+
+→ 41% (Fri + Sat) goes into the weekend
+```
+
+```
+MWest2020 submission hour-of-day (UTC, n=22):
+  08  ██████████████████████████████   27.3%   ← 09:00 CET, healthy
+  09  █████████████████████████        22.7%   ← 10:00 CET, healthy
+  19  ███████████████                  13.6%   ← 21:00 CET, after hours
+  20  ████████████████████             18.2%   ← 22:00 CET, after hours
+
+→ 32% submitted outside EU work hours
+```
+
+### 5. Per-maintainer activity is uneven across the week
+
+```
+mgallien     (n=297): Mon 25%, Tue 26%, Wed 14%, Thu 16%, Fri 18%
+camilasan    (n= 15): mostly Thu (53%), some Tue/Wed (40%)
+GretaD       (n= 18): Thu (50%), Wed (28%)
+tobiasKaminsky (n=1): Tue
+```
+
+`mgallien` is the most consistent across the week and handles 38%
+of all responses; `camilasan` and `GretaD` are Thursday-heavy. For
+Conduction's queue specifically, `mgallien` and `camilasan` together
+do 10 of the 12 responses we receive — and their availability
+patterns differ.
+
+### How much of the gap does this actually explain?
+
+Rough decomposition of Conduction's 3.3× first-response slowdown:
+
+- **Weekend-trap submissions (Fri/Sat = 41% of our PRs):** at the
+  repo-wide cost of ~2.2 extra days each, this contributes roughly
+  0.9 days to our 2.5-day excess over the repo median.
+- **Off-hours submissions (32% in 19–20 UTC):** an additional
+  fraction of a day each, contributing perhaps 0.2–0.3 days.
+- **Batch-pickup effect (visible on Tue submissions, where
+  Conduction's median is ~3.0d vs the repo Tue median of 0.74d):**
+  the residual ~1.5+ days unexplained by calendar effects. This is
+  the part a `@mention`-style pickup signal would close.
+
+The first two are submitter-side workflow (don't submit Fri-Sat-
+evenings). The third is the substantive ask of the conversation:
+make Conduction batches visible at submission time so they don't
+wait through their normal poll cadence.
+
+### Practical guidance derived from this
+
+| Lever | Cost to us | Expected savings |
+|---|---|---|
+| Stop submitting Fri/Sat (defer to Mon morning UTC) | Tiny (a day's delay on our side) | ~1.5 days off our first-response median |
+| Stop submitting 19–20 UTC (defer to 08–09 UTC) | Trivial | ~0.5 days |
+| Pickup signal (`@mention` on batch ready) | Negligible to maintainers | ~1.5 days (closes the residual) |
+| Stop duplicate-batch submissions | Local discipline | Cleans up the data, no first-response impact |
