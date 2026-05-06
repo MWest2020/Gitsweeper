@@ -66,3 +66,10 @@ once there is working code worth tagging.
   87% (within noise on N=15); the real gap is first-response latency
   (3.59 days median for Conduction vs 1.08 repo-wide), consistent with
   a batched-pickup pattern.
+- `2026-05-06` — Dutch translation of the same report at
+  `docs/examples/nextcloud-csr-rapport-2026-05-06.md`. Added a one-line
+  TL;DR phrasing of the conclusion: voor Conduction's slice geldt dat
+  er niet vaak genoeg gekeken wordt, maar zodra er gekeken wordt gaat
+  het vrijwel direct goed en wordt het snel opgepikt. Repo-breed is de
+  pickup juist snel (~1d); de "niet vaak genoeg gekeken"-uitspraak
+  slaat alleen op onze slice, niet op het proces als geheel.
