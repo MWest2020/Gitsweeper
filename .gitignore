@@ -33,6 +33,11 @@ Thumbs.db
 *.sqlite3
 *.db
 
+# Output reports / sample analyses produced by the tool. These are
+# run-specific artefacts (timestamped per snapshot), not source. Keep
+# them locally for sharing, but do not version them.
+docs/examples/
+
 # Claude Code: project-shared instructions (.claude/skills, .claude/commands)
 # ARE committed because they are part of the project's agent context.
 # Local-only state is not.
