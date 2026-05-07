@@ -145,3 +145,29 @@ def test_4xx_other_than_rate_limit_raises() -> None:
     client, _ = _client(httpx.MockTransport(handler), token="t")
     with pytest.raises(GitHubError):
         list(client.list_pull_requests("o", "r"))
+
+
+def test_list_org_repos_paginates() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/orgs/ConductionNL/repos"
+        page = request.url.params.get("page")
+        if page is None:
+            return httpx.Response(
+                200,
+                json=[{"name": "openregister", "owner": {"login": "ConductionNL"}}],
+                headers={
+                    "x-ratelimit-remaining": "100",
+                    "link": '<https://api.github.com/orgs/ConductionNL/repos?page=2>; rel="next"',
+                },
+            )
+        if page == "2":
+            return httpx.Response(
+                200,
+                json=[{"name": "opencatalogi", "owner": {"login": "ConductionNL"}}],
+                headers={"x-ratelimit-remaining": "100"},
+            )
+        return httpx.Response(404)
+
+    client, _ = _client(httpx.MockTransport(handler), token="t")
+    repos = [r["name"] for r in client.list_org_repos("ConductionNL")]
+    assert repos == ["openregister", "opencatalogi"]

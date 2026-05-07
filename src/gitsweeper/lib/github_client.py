@@ -107,6 +107,12 @@ class GitHubClient:
         params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
         yield from self._paginate(self._base_url + path, params)
 
+    def list_org_repos(self, org: str) -> Iterator[dict[str, Any]]:
+        """List every repository owned by an organisation. Paginated."""
+        path = f"/orgs/{org}/repos"
+        params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
+        yield from self._paginate(self._base_url + path, params)
+
     def _paginate(
         self, url: str, params: dict[str, Any] | None
     ) -> Iterator[dict[str, Any]]:

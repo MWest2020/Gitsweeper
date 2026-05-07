@@ -85,6 +85,28 @@ once there is working code worth tagging.
   `docs/examples/` is now in `.gitignore`. The reports remain on
   disk locally; their session-time content lives in commits 0d06c18,
   66de3d2, and df541f0 for audit.
+- `2026-05-07` — OpenSpec change `portfolio-timeseries-foundation`
+  proposed, implemented, and archived. Foundation for the A/D-side
+  of DAR (analysis and dashboard, beyond the existing reporting
+  layer):
+  - `pr-throughput-analysis` (modified): `fetch` now accepts
+    multiple `owner/repo` arguments and an `--org <name>` flag that
+    enumerates a GitHub organisation's repositories. Per-repo errors
+    are reported but do not abort the batch; the command exits
+    non-zero on partial failure.
+  - New capability `kpi-timeseries`: long-format
+    `(period, repo, author, kpi, value, sample_size)` series across
+    one or more cached repositories. Closed KPI registry covers
+    `median-time-to-merge`, `median-first-response`,
+    `response-rate`, `volume`. ISO week as the default period; the
+    `period` parameter is the seam for later calendar-month /
+    quarter additions. Empty buckets omitted (no `NaN`/`0`
+    sentinels). New CLI: `gitsweeper timeseries`.
+  - Tests grow from 62 to 71. Smoke run against the
+    `ConductionNL/openregister` cache shows the expected weekly
+    pattern: weeks vary from 1 PR to 54 PRs with response-rate
+    swinging 0.00–0.93 — exactly the kind of variability that future
+    regression-monitoring will quantify against a trailing baseline.
 - `2026-05-06` — Output convention finalised: caches under `cache/`
   (matches `*.sqlite`), reports under `docs/examples/`. Both
   gitignored. Smoke runs no longer dump into `/tmp`. README and

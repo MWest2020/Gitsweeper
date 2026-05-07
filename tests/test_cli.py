@@ -101,6 +101,16 @@ def test_repo_argument_must_be_owner_slash_name(runner: CliRunner, tmp_path: Pat
     assert result.exit_code != 0
 
 
+def test_fetch_requires_repos_or_org(runner: CliRunner, tmp_path: Path) -> None:
+    db = tmp_path / "gs.sqlite"
+    result = runner.invoke(cli.app, ["fetch", "--db-path", str(db)])
+    assert result.exit_code != 0
+    assert (
+        "owner/repo" in (result.stdout + result.stderr).lower()
+        or "org" in (result.stdout + result.stderr).lower()
+    )
+
+
 def test_since_filter_applied(runner: CliRunner, tmp_path: Path) -> None:
     db = tmp_path / "gs.sqlite"
     _seed_cache(db)
