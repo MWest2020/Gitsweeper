@@ -15,6 +15,7 @@ from pathlib import Path
 import typer
 
 from gitsweeper.capabilities import (
+    effort_allocation,
     kpi_timeseries,
     pr_classification,
     pr_throughput,
@@ -288,6 +289,36 @@ def timeseries(
         author=author,
         by_author=by_author,
         repos=repo_pairs,
+    )
+    _renderer_for(json_out).render(result)
+
+
+@app.command()
+def effort(
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on PR creation date (YYYY-MM-DD UTC)"
+    ),
+    repos: list[str] = typer.Option(
+        None, "--repos", help="Restrict to these owner/repo entries (repeatable)"
+    ),
+    by_period: bool = typer.Option(
+        False, "--by-period", help="Break each row out per ISO week"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Per-author × per-repo effort-allocation pivot."""
+    since_iso = _validate_since(since)
+    repo_pairs: list[tuple[str, str]] | None = None
+    if repos:
+        repo_pairs = [_split_repo(r) for r in repos]
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    result = effort_allocation.compute_effort_allocation(
+        conn,
+        since=since_iso,
+        repos=repo_pairs,
+        by_period=by_period,
     )
     _renderer_for(json_out).render(result)
 

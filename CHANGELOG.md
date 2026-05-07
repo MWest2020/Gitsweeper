@@ -85,6 +85,18 @@ once there is working code worth tagging.
   `docs/examples/` is now in `.gitignore`. The reports remain on
   disk locally; their session-time content lives in commits 0d06c18,
   66de3d2, and df541f0 for audit.
+- `2026-05-07` — OpenSpec change `effort-allocation` proposed,
+  implemented, and archived. Per-author × per-repo (optionally
+  per-period) submission/outcome pivot. Three closure buckets
+  (`self_pulled`, `closed_by_maintainer`, `closed_unenriched`) so
+  the data is honest about classification gaps. `merged_rate` is
+  `merged / (merged + closed_by_maintainer)` so self-pulled
+  duplicates do not deflate the rate. New CLI: `gitsweeper effort
+  [--since] [--repos] [--by-period] [--json]`. Smoke against the
+  openregister cache for `--since 2026-01-01` shows 8 active
+  authors, top contributor at 101 submissions / 72 merged
+  (0.96 merged_rate); self-pull rate roughly 12–15% across active
+  authors. 9 new tests; 86 total.
 - `2026-05-07` — OpenSpec change `regression-monitoring` proposed,
   implemented, and archived. First A-side capability on top of the
   KPI series. `compute_regression_alerts` groups the time-series
