@@ -85,6 +85,20 @@ once there is working code worth tagging.
   `docs/examples/` is now in `.gitignore`. The reports remain on
   disk locally; their session-time content lives in commits 0d06c18,
   66de3d2, and df541f0 for audit.
+- `2026-05-07` — OpenSpec change `regression-monitoring` proposed,
+  implemented, and archived. First A-side capability on top of the
+  KPI series. `compute_regression_alerts` groups the time-series
+  per `(repo, [author], kpi)`, takes the latest period as the
+  current value, computes a trailing-baseline mean + stdev over
+  the previous N periods (default 12), and emits one alert row
+  per series whose z-score exceeds `threshold_sigma` (default 2.0).
+  Stable series, insufficient baselines, and flat baselines are
+  silently skipped and counted in metadata. New CLI:
+  `gitsweeper regressions [--baseline] [--threshold] [--kpis]
+  [--by-author] [--repos] [--json]`. Smoke run against the
+  openregister cache: 3 series inspected with `--baseline 6`, 0
+  alerts (the recent weeks sit within ±2σ of their trailing 6-week
+  baseline). 6 new tests; 77 total.
 - `2026-05-07` — OpenSpec change `portfolio-timeseries-foundation`
   proposed, implemented, and archived. Foundation for the A/D-side
   of DAR (analysis and dashboard, beyond the existing reporting

@@ -14,7 +14,12 @@ from pathlib import Path
 
 import typer
 
-from gitsweeper.capabilities import kpi_timeseries, pr_classification, pr_throughput
+from gitsweeper.capabilities import (
+    kpi_timeseries,
+    pr_classification,
+    pr_throughput,
+    regression_monitoring,
+)
 from gitsweeper.capabilities import process_report as _process_report
 from gitsweeper.lib import storage
 from gitsweeper.lib.github_client import GitHubClient
@@ -279,6 +284,59 @@ def timeseries(
         conn,
         kpis=kpi_list,
         period="iso-week",
+        since=since_iso,
+        author=author,
+        by_author=by_author,
+        repos=repo_pairs,
+    )
+    _renderer_for(json_out).render(result)
+
+
+@app.command()
+def regressions(
+    kpis: str = typer.Option(
+        "median-time-to-merge,median-first-response,response-rate,volume",
+        "--kpis",
+        help="Comma-separated KPI names to scan",
+    ),
+    baseline: int = typer.Option(
+        12, "--baseline", help="Number of trailing periods that form the baseline"
+    ),
+    threshold: float = typer.Option(
+        2.0, "--threshold", help="Z-score threshold for emitting an alert"
+    ),
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on PR creation date (YYYY-MM-DD UTC)"
+    ),
+    author: str | None = typer.Option(
+        None, "--author", help="Restrict to PRs by this GitHub login"
+    ),
+    by_author: bool = typer.Option(
+        False, "--by-author", help="Compute alerts per (repo, author) instead of per repo"
+    ),
+    repos: list[str] = typer.Option(
+        None, "--repos", help="Restrict to these owner/repo entries (repeatable)"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Trailing-baseline alerts: KPIs that moved beyond noise this period."""
+    kpi_list = [k.strip() for k in kpis.split(",") if k.strip()]
+    try:
+        kpi_timeseries._validate_kpis(kpi_list)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    since_iso = _validate_since(since)
+    repo_pairs: list[tuple[str, str]] | None = None
+    if repos:
+        repo_pairs = [_split_repo(r) for r in repos]
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    result = regression_monitoring.compute_regression_alerts(
+        conn,
+        kpis=kpi_list,
+        baseline_periods=baseline,
+        threshold_sigma=threshold,
         since=since_iso,
         author=author,
         by_author=by_author,
