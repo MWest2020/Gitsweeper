@@ -14,6 +14,7 @@ from pathlib import Path
 
 import typer
 
+from gitsweeper.capabilities import dashboard as _dashboard
 from gitsweeper.capabilities import (
     effort_allocation,
     kpi_timeseries,
@@ -414,6 +415,54 @@ def report(
         typer.echo(f"Wrote {out}", err=True)
     else:
         typer.echo(markdown, nl=False)
+
+
+@app.command()
+def publish(
+    out: Path = typer.Option(
+        Path("docs/examples/dashboard"),
+        "--out",
+        help="Directory to write the HTML+SVG bundle into",
+    ),
+    repos: list[str] = typer.Option(
+        None, "--repos", help="Restrict the bundle to these owner/repo entries"
+    ),
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on PR creation date (YYYY-MM-DD UTC)"
+    ),
+    baseline: int = typer.Option(
+        12, "--baseline", help="Number of trailing periods that form the baseline"
+    ),
+    threshold: float = typer.Option(
+        2.0, "--threshold", help="Z-score threshold for emitting an alert"
+    ),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Publish a static HTML+SVG dashboard from the local cache."""
+    since_iso = _validate_since(since)
+    repo_pairs: list[tuple[str, str]] | None = None
+    if repos:
+        repo_pairs = [_split_repo(r) for r in repos]
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    try:
+        summary = _dashboard.publish(
+            conn,
+            out_dir=out,
+            repos=repo_pairs,
+            since=since_iso,
+            baseline_periods=baseline,
+            threshold_sigma=threshold,
+        )
+    except _dashboard.CacheEmpty as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(
+        f"Wrote dashboard for {len(summary['repos'])} repo(s) "
+        f"({summary['series_rows']} series rows, {summary['alerts_emitted']} alerts) "
+        f"to {summary['out_dir']}",
+        err=True,
+    )
 
 
 def main() -> None:  # pragma: no cover - thin wrapper for entrypoint scripts

@@ -11,6 +11,7 @@ dependencies = [
     "polars>=1.0",
     "typer>=0.12",
     "rich>=13.0",
+    "matplotlib>=3.8",
 ]
 
 [project.scripts]
@@ -46,3 +47,6 @@ select = ["E", "F", "I", "B", "UP", "W"]
 "src/gitsweeper/cli.py" = ["B008"]
 # Long, expressive test data lines stay readable as one-liners.
 "tests/*" = ["E501"]
+# Embedded HTML/CSS strings are inherently long; reformatting hurts
+# readability of the markup.
+"src/gitsweeper/capabilities/dashboard.py" = ["E501"]

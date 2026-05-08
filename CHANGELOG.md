@@ -85,6 +85,19 @@ once there is working code worth tagging.
   `docs/examples/` is now in `.gitignore`. The reports remain on
   disk locally; their session-time content lives in commits 0d06c18,
   66de3d2, and df541f0 for audit.
+- `2026-05-07` — OpenSpec change `static-site-publish` proposed,
+  implemented, and archived. Closes the D-side of DAR. New
+  `gitsweeper publish [--out] [--repos] [--since] [--baseline]
+  [--threshold]` command writes a self-contained HTML+SVG bundle
+  (index page, per-repo drill-downs with KPI line-charts, alerts,
+  effort-allocation, classification) plus the underlying JSON
+  data files that backed each rendered view. No JavaScript, no
+  remote references — auditable offline. New dependency:
+  `matplotlib` for SVG chart rendering. Smoke output for
+  `cache/conductionnl-openregister.sqlite` with `--since
+  2026-01-01 --baseline 6` is 61 series rows / 0 alerts /
+  ~180K HTML; written to `docs/examples/dashboard/` (gitignored
+  by convention). 7 new tests; 93 total.
 - `2026-05-07` — OpenSpec change `effort-allocation` proposed,
   implemented, and archived. Per-author × per-repo (optionally
   per-period) submission/outcome pivot. Three closure buckets
