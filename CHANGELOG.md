@@ -10,6 +10,18 @@ once there is working code worth tagging.
 
 ### Added
 
+- `2026-05-18` — Manager-MCP capability (`gitsweeper mcp`). Stdio MCP
+  server exposing nine read-only tools that combine Gitsweeper's PR
+  analyses (`pr_throughput`, `first_response`, `classify`, `patterns`)
+  with Billbird's manager-view (`hours_summary`, `plan_vs_actual`,
+  `recent_activity`, `cycle_time` stub) plus a composite
+  `team_status_report` that returns both structured data and a
+  markdown rendering. New shared library `lib/billbird_client.py`
+  (mirrors `lib/github_client.py` shape) is the only path to
+  Billbird's REST API; tokens come from `BILLBIRD_API_TOKEN`.
+  Config is lazy: the server starts without Billbird env vars and
+  the Gitsweeper-only tools stay usable. New dependency: official
+  `mcp` Python SDK. New docs: `docs/mcp.md`. 30 new unit tests.
 - `2026-05-05` — OpenSpec baseline initialised. Project structure now
   includes `openspec/` (created via `openspec init --tools claude`) with
   the project description, the v1 stack and conventions, and the

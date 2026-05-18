@@ -465,6 +465,27 @@ def publish(
     )
 
 
+@app.command()
+def mcp() -> None:
+    """Run the Manager-MCP server over stdio.
+
+    Reads Billbird credentials from BILLBIRD_API_URL and BILLBIRD_API_TOKEN
+    lazily — the server starts even without them, and Billbird-touching
+    tools return a structured ``billbird_not_configured`` error if called
+    without credentials. Blocks until stdin closes (i.e. until the parent
+    AI client disconnects).
+    """
+    try:
+        from gitsweeper.capabilities.manager_mcp import run_stdio
+    except ImportError as exc:
+        typer.echo(
+            f"MCP support requires the 'mcp' package: {exc}",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
+    run_stdio()
+
+
 def main() -> None:  # pragma: no cover - thin wrapper for entrypoint scripts
     app()
 
