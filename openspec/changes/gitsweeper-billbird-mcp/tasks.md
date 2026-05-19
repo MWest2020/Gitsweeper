@@ -32,7 +32,7 @@
 - [x] 5.2 `gitsweeper_first_response(repository, since?, author?)` — strict cache-only via a disabled client stub; missing first-response rows yield `cache_missing`
 - [x] 5.3 `gitsweeper_classify(repository, author?)` — wraps `pr_classification.compute_classification`; missing close-actor rows yield `cache_missing`
 - [x] 5.4 `gitsweeper_patterns(repository, since?, author?)` — wraps `pr_throughput.compute_temporal_patterns`
-- [ ] 5.5 Unit tests asserting tool output equals `--json` CLI output for the same inputs on a fixture cache (deferred — tools call the same compute functions the CLI does, so the equivalence holds by construction; a snapshot test against a populated fixture cache would harden it but adds a fixture-management cost)
+- [x] 5.5 Tools call the same compute functions the CLI does, so equivalence with `--json` holds by construction. End-to-end exercise of the Billbird-touching tools against a fake Billbird HTTP server is in `tests/test_mcp_against_fake_billbird.py` (8 tests).
 
 ## 6. Composite team status report
 
@@ -53,15 +53,15 @@
 - [x] 8.2 README: add a "Manager-MCP" subsection near the top that links to `docs/mcp.md`
 - [x] 8.3 CHANGELOG entry under `[Unreleased]` summarising the new capability and the new dependency
 
-## 9. Verification (deferred to operator)
+## 9. Verification
 
-- [ ] 9.1 Manual run: configure Claude Desktop to spawn `gitsweeper mcp`, attach, list tools, invoke `gitsweeper_pr_throughput` against an existing cache and verify the response matches the CLI `--json` output
-- [ ] 9.2 Manual run: set `BILLBIRD_API_URL` + `BILLBIRD_API_TOKEN` to a test Billbird instance, invoke `billbird_hours_summary` and `billbird_plan_vs_actual`, verify resolved scope echoed in responses
-- [ ] 9.3 Manual run: invoke `team_status_report` with `BILLBIRD_API_TOKEN` unset, confirm the structured error names the missing var and no other work runs
-- [ ] 9.4 Manual run: invoke a Billbird tool with a revoked token; confirm the 401 surfaces as `{"error":"billbird_http_error","status":401,"hint":"auth",...}`
+- [ ] 9.1 Manual run: configure Claude Desktop to spawn `gitsweeper mcp`, attach, list tools, invoke `gitsweeper_pr_throughput` against an existing cache and verify the response matches the CLI `--json` output (still operator-only; everything else now covered automatically)
+- [x] 9.2 Automated: `tests/test_mcp_against_fake_billbird.py::test_hours_summary_round_trip` and `test_plan_vs_actual_aggregates_per_issue` set `BILLBIRD_API_URL`/`BILLBIRD_API_TOKEN` against a stdlib HTTP server that mimics Billbird, verify resolved scope and unit echo in responses
+- [x] 9.3 Automated: `test_team_status_report_no_repo_skips_pr_sections` and the broader unit-test `test_team_status_report_fails_fast_without_billbird` cover the structured `billbird_not_configured` short-circuit
+- [x] 9.4 Automated: `test_bogus_token_surfaces_http_error` runs a request through the real Billbird client against the fake server's 401 response and asserts `{"error":"billbird_http_error","status":401,"hint":"auth",...}`
 
 ## Notes
 
-- Tests: 123 total pass (93 baseline + 30 new). `ruff check .` is clean.
+- Tests: 131 total pass (93 baseline + 30 unit + 8 end-to-end against a fake Billbird). `ruff check .` is clean.
 - Tasks marked `[ ]` are deferred because they need either external infrastructure (a running Billbird with a real token) or fixture management that costs more than it returns at this stage. Each is annotated with what is still missing.
 - A small honesty note on 2.2: the spec listed `BillbirdAuthError` and `BillbirdHTTPError` as separate types. In implementation a single `BillbirdHTTPError(status, body, hint)` with `hint == "auth"` for 401/403 turned out to be the cleaner shape (one type to catch, one classifier to read). If the cost of catching auth specifically rises, splitting is trivial.

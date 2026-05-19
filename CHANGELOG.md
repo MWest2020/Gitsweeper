@@ -22,6 +22,14 @@ once there is working code worth tagging.
   Config is lazy: the server starts without Billbird env vars and
   the Gitsweeper-only tools stay usable. New dependency: official
   `mcp` Python SDK. New docs: `docs/mcp.md`. 30 new unit tests.
+- `2026-05-19` — End-to-end MCP tests against a stdlib HTTP server
+  that mimics Billbird (`tests/test_mcp_against_fake_billbird.py`).
+  Eight new tests exercise the wire-level contract:
+  hours-summary round trip, plan-vs-actual aggregation and
+  status filter, recent activity combining logs and plans,
+  composite report skipping PR sections when no repo is in scope,
+  401 surfacing as `billbird_http_error/hint=auth`, and the
+  invalid-period structured error. Brings the total to 131 tests.
 - `2026-05-05` — OpenSpec baseline initialised. Project structure now
   includes `openspec/` (created via `openspec init --tools claude`) with
   the project description, the v1 stack and conventions, and the
