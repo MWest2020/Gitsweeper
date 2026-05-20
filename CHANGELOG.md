@@ -22,6 +22,15 @@ once there is working code worth tagging.
   Config is lazy: the server starts without Billbird env vars and
   the Gitsweeper-only tools stay usable. New dependency: official
   `mcp` Python SDK. New docs: `docs/mcp.md`. 30 new unit tests.
+- `2026-05-20` — `scripts/mcp_smoke.py`: human-runnable smoke that
+  spawns `gitsweeper mcp` as a child process, completes the MCP
+  handshake, lists tools, and invokes `billbird_plan_vs_actual` and
+  `billbird_hours_summary` against the Billbird pointed at by
+  `BILLBIRD_API_URL` / `BILLBIRD_API_TOKEN`. Exits non-zero on any
+  tool error so it doubles as a deploy-time canary. Verified live
+  against a local Billbird instance on the same date — round-trip
+  returns `{planned: 480, logged: 0, variance: -480, status: under}`
+  for the seeded plan.
 - `2026-05-19` — End-to-end MCP tests against a stdlib HTTP server
   that mimics Billbird (`tests/test_mcp_against_fake_billbird.py`).
   Eight new tests exercise the wire-level contract:

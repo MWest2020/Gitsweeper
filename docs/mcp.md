@@ -84,6 +84,18 @@ The Billbird bearer token grants the same read/write access the issuing user has
 - Revoke it from the Billbird admin panel when it is no longer needed.
 - Avoid pasting it into chat. If you do, revoke immediately afterwards.
 
+## Smoke testing the round-trip
+
+`scripts/mcp_smoke.py` spawns the MCP server, completes the initialise handshake, lists tools, and invokes `billbird_plan_vs_actual` and `billbird_hours_summary` against whatever Billbird the env vars point at. Useful as a smoke before a deploy or after a config change:
+
+```bash
+BILLBIRD_API_URL=http://127.0.0.1:8080 \
+BILLBIRD_API_TOKEN=bb_xxxxxxxxxxxxx \
+    uv run python scripts/mcp_smoke.py
+```
+
+The script exits non-zero on any tool error so it doubles as a CI-safe canary.
+
 ## What this server intentionally does not do
 
 - **Writes.** Plan creation, log correction, and token management are all on their canonical paths.
