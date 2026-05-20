@@ -10,6 +10,35 @@ once there is working code worth tagging.
 
 ### Added
 
+- `2026-05-18` — Manager-MCP capability (`gitsweeper mcp`). Stdio MCP
+  server exposing nine read-only tools that combine Gitsweeper's PR
+  analyses (`pr_throughput`, `first_response`, `classify`, `patterns`)
+  with Billbird's manager-view (`hours_summary`, `plan_vs_actual`,
+  `recent_activity`, `cycle_time` stub) plus a composite
+  `team_status_report` that returns both structured data and a
+  markdown rendering. New shared library `lib/billbird_client.py`
+  (mirrors `lib/github_client.py` shape) is the only path to
+  Billbird's REST API; tokens come from `BILLBIRD_API_TOKEN`.
+  Config is lazy: the server starts without Billbird env vars and
+  the Gitsweeper-only tools stay usable. New dependency: official
+  `mcp` Python SDK. New docs: `docs/mcp.md`. 30 new unit tests.
+- `2026-05-20` — `scripts/mcp_smoke.py`: human-runnable smoke that
+  spawns `gitsweeper mcp` as a child process, completes the MCP
+  handshake, lists tools, and invokes `billbird_plan_vs_actual` and
+  `billbird_hours_summary` against the Billbird pointed at by
+  `BILLBIRD_API_URL` / `BILLBIRD_API_TOKEN`. Exits non-zero on any
+  tool error so it doubles as a deploy-time canary. Verified live
+  against a local Billbird instance on the same date — round-trip
+  returns `{planned: 480, logged: 0, variance: -480, status: under}`
+  for the seeded plan.
+- `2026-05-19` — End-to-end MCP tests against a stdlib HTTP server
+  that mimics Billbird (`tests/test_mcp_against_fake_billbird.py`).
+  Eight new tests exercise the wire-level contract:
+  hours-summary round trip, plan-vs-actual aggregation and
+  status filter, recent activity combining logs and plans,
+  composite report skipping PR sections when no repo is in scope,
+  401 surfacing as `billbird_http_error/hint=auth`, and the
+  invalid-period structured error. Brings the total to 131 tests.
 - `2026-05-05` — OpenSpec baseline initialised. Project structure now
   includes `openspec/` (created via `openspec init --tools claude`) with
   the project description, the v1 stack and conventions, and the

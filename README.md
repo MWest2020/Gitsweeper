@@ -66,6 +66,21 @@ taken. Keep them locally for sharing; do not commit them.
 | `patterns <repo> [--since] [--author] [--json]` | Day-of-week and hour-of-day distributions for submissions and responses. | 0 (cache only). |
 | `report <repo> [--author] [--since] [--refresh] [--out PATH]` | Compose every section above into a single markdown document. `--refresh` runs fetch + first-response + classify before composing. | Sum of the above when `--refresh`; 0 otherwise. |
 
+## Manager-MCP
+
+A small MCP server exposes Gitsweeper's PR analyses *and* a Billbird
+manager-view (hours, plan-vs-actual) over stdio. Point Claude Desktop
+(or any MCP-aware AI client) at `gitsweeper mcp` and a manager can
+ask plan-vs-actual or PR-throughput questions in natural language.
+See [`docs/mcp.md`](./docs/mcp.md) for the configuration snippet,
+the nine tools the server advertises, the read-only contract, and the
+required environment.
+
+```bash
+# Run the server directly (typically Claude Desktop spawns this for you).
+uv run gitsweeper mcp
+```
+
 ## Capabilities
 
 - [`pr-throughput-analysis`](./openspec/specs/pr-throughput-analysis/spec.md)
