@@ -224,6 +224,36 @@ TOOLS: list[ToolSpec] = [
         handler=t.gitsweeper_classify,
     ),
     ToolSpec(
+        name="gitsweeper_reconcile",
+        description=(
+            "Reconcile commit Time: footers against Billbird /log entries. "
+            "Returns one row per (repo, author, issue) with commit minutes, "
+            "log minutes, drift, and status (aligned / commits_only / "
+            "logs_only / over_committed / over_logged). Output unit: minutes."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "repository": {"type": "string", "description": "owner/name"},
+                "since": {
+                    "type": "string",
+                    "description": "Optional YYYY-MM-DD or ISO 8601 lower bound",
+                },
+                "branch": {
+                    "type": "string",
+                    "description": "Optional branch name; default branch when omitted",
+                },
+                "author": {
+                    "type": "string",
+                    "description": "Optional GitHub login filter",
+                },
+            },
+            "required": ["repository"],
+            "additionalProperties": False,
+        },
+        handler=t.gitsweeper_reconcile,
+    ),
+    ToolSpec(
         name="gitsweeper_patterns",
         description=(
             "Day-of-week and hour-of-day patterns for submissions and "

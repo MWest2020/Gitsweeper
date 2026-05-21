@@ -40,7 +40,7 @@ Restart Claude Desktop. The tools listed below appear under the server's name.
 
 ## Available tools
 
-Nine tools, registered in this fixed order:
+Ten tools, registered in this fixed order:
 
 | Tool | What it returns |
 |---|---|
@@ -52,6 +52,7 @@ Nine tools, registered in this fixed order:
 | `gitsweeper_pr_throughput` | Time-to-merge percentiles for a repo. |
 | `gitsweeper_first_response` | Time-to-first-response percentiles. Cache-only — never fetches. |
 | `gitsweeper_classify` | Self-pulled vs maintainer-closed for closed-unmerged PRs. Cache-only. |
+| `gitsweeper_reconcile` | One row per `(repo, author, issue)` cross-checking commit `Time:` footers against Billbird `/log` entries. Returns drift and a status (`aligned` / `commits_only` / `logs_only` / `over_committed` / `over_logged`). See [reconcile.md](reconcile.md). |
 | `gitsweeper_patterns` | Day-of-week and hour-of-day patterns for submissions and responses. |
 
 Every numeric field in a response carries an explicit `unit` (`minutes`, `hours`, `days`, `count`), and Billbird-touching responses echo back the resolved `period` block. Tools never return a bare "total" without naming the scope.
