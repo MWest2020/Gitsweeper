@@ -113,6 +113,28 @@ class GitHubClient:
         params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
         yield from self._paginate(self._base_url + path, params)
 
+    def list_commits(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        since: str | None = None,
+        sha: str | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """List commits on a repo branch. Paginated.
+
+        ``since`` is an ISO 8601 timestamp passed verbatim to GitHub.
+        ``sha`` is the branch name (defaults to the repo's default
+        branch when omitted).
+        """
+        path = f"/repos/{owner}/{repo}/commits"
+        params: dict[str, Any] = {"per_page": DEFAULT_PER_PAGE}
+        if since:
+            params["since"] = since
+        if sha:
+            params["sha"] = sha
+        yield from self._paginate(self._base_url + path, params)
+
     def _paginate(
         self, url: str, params: dict[str, Any] | None
     ) -> Iterator[dict[str, Any]]:

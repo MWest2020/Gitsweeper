@@ -400,6 +400,56 @@ def gitsweeper_classify(repository: str, author: str | None = None) -> dict[str,
     return payload
 
 
+def gitsweeper_reconcile(
+    repository: str,
+    since: str | None = None,
+    branch: str | None = None,
+    author: str | None = None,
+) -> dict[str, Any]:
+    """Reconcile commit Time: footers against Billbird /log entries
+    for a repository. Pre-flights Billbird config so a misconfigured
+    call short-circuits before any GitHub work runs."""
+    from gitsweeper.capabilities import commit_time_reconcile as reconcile_cap
+
+    try:
+        owner, name = _split_repo(repository)
+    except ValueError as exc:
+        return {"error": "invalid_argument", "hint": str(exc)}
+
+    try:
+        with BillbirdClient.from_env():
+            pass
+    except BillbirdNotConfigured as exc:
+        return _not_configured_response(exc)
+
+    try:
+        result = reconcile_cap.reconcile_from_env(
+            owner=owner,
+            name=name,
+            since=since,
+            branch=branch,
+            author=author,
+        )
+    except BillbirdNotConfigured as exc:
+        return _not_configured_response(exc)
+    except BillbirdHTTPError as exc:
+        return _http_error_response(exc)
+
+    payload = _analysis_to_payload(result)
+    payload.update(
+        {
+            "unit": "minutes",
+            "scope": {
+                "repository": repository,
+                "since": since,
+                "branch": branch,
+                "author": author,
+            },
+        }
+    )
+    return payload
+
+
 def gitsweeper_patterns(
     repository: str,
     since: str | None = None,

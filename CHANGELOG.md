@@ -10,6 +10,19 @@ once there is working code worth tagging.
 
 ### Added
 
+- `2026-05-21` — Reconcile capability (`gitsweeper reconcile <repo>`,
+  MCP tool `gitsweeper_reconcile`). Pulls commit `Time:` footers from
+  GitHub, pulls matching Billbird `/log` entries via the existing
+  bearer-token client, aggregates per (repo, author, issue), computes
+  drift and classifies it (`aligned` / `commits_only` / `logs_only` /
+  `over_committed` / `over_logged`). New shared lib
+  `lib/commit_time.py` (pure parser, 26 unit tests). New `list_commits`
+  method on the GitHub client. New `docs/reconcile.md`. Brings the
+  manager-MCP registry from 9 to 10 tools; `tests/test_manager_mcp.py`
+  and `scripts/mcp_smoke.py` updated accordingly. 19 new end-to-end
+  tests for the capability against pytest-httpx-mocked GitHub +
+  Billbird.
+
 - `2026-05-18` — Manager-MCP capability (`gitsweeper mcp`). Stdio MCP
   server exposing nine read-only tools that combine Gitsweeper's PR
   analyses (`pr_throughput`, `first_response`, `classify`, `patterns`)

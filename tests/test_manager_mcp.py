@@ -29,8 +29,8 @@ from gitsweeper.capabilities.manager_mcp.tools import (
 # --- Registry --------------------------------------------------------------
 
 
-def test_registry_has_nine_tools_in_declared_order():
-    assert len(TOOLS) == 9
+def test_registry_has_ten_tools_in_declared_order():
+    assert len(TOOLS) == 10
     assert tool_names() == [
         "team_status_report",
         "billbird_hours_summary",
@@ -40,6 +40,7 @@ def test_registry_has_nine_tools_in_declared_order():
         "gitsweeper_pr_throughput",
         "gitsweeper_first_response",
         "gitsweeper_classify",
+        "gitsweeper_reconcile",
         "gitsweeper_patterns",
     ]
 

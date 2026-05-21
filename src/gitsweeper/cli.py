@@ -466,6 +466,56 @@ def publish(
 
 
 @app.command()
+def reconcile(
+    repo: str = typer.Argument(..., help="GitHub owner/repo"),
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on commit / log date (YYYY-MM-DD UTC)"
+    ),
+    branch: str | None = typer.Option(
+        None, "--branch", help="Branch to read commits from (default: repo's default branch)"
+    ),
+    author: str | None = typer.Option(
+        None, "--author", help="Restrict reporting to this GitHub login"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+) -> None:
+    """Reconcile commit Time: footers against Billbird /log entries.
+
+    Pulls commits from GitHub (via the standard GITHUB_TOKEN) and time
+    entries from Billbird (via BILLBIRD_API_URL + BILLBIRD_API_TOKEN),
+    groups both per (repo, author, issue), and prints drift per group.
+    """
+    from gitsweeper.capabilities import commit_time_reconcile as reconcile_cap
+    from gitsweeper.lib.billbird_client import BillbirdNotConfigured
+
+    owner, name = _split_repo(repo)
+    since_iso: str | None = None
+    if since:
+        try:
+            # Normalise YYYY-MM-DD to ISO 8601 midnight UTC.
+            since_iso = pr_throughput.parse_since(since)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+
+    try:
+        result = reconcile_cap.reconcile_from_env(
+            owner=owner,
+            name=name,
+            since=since_iso,
+            branch=branch,
+            author=author,
+        )
+    except BillbirdNotConfigured as exc:
+        typer.echo(
+            f"Billbird is not configured: missing {', '.join(exc.missing)}",
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
+
+    _renderer_for(json_out).render(result)
+
+
+@app.command()
 def mcp() -> None:
     """Run the Manager-MCP server over stdio.
 

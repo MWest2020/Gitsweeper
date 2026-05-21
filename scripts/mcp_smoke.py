@@ -114,6 +114,7 @@ def main() -> int:
             "gitsweeper_pr_throughput",
             "gitsweeper_first_response",
             "gitsweeper_classify",
+            "gitsweeper_reconcile",
             "gitsweeper_patterns",
         }
         missing = expected - set(names)
