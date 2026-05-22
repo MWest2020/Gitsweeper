@@ -8,6 +8,14 @@ once there is working code worth tagging.
 
 ## [Unreleased]
 
+### Changed
+- `2026-05-22` — `billbird-client` is now resolved from PyPI (v0.1.0+).
+  The local-path override (`tool.uv.sources.billbird-client = { path = "../billbird-client", editable = true }`)
+  was a stopgap while the package was unreleased; with the package
+  live on PyPI the optional-extra declaration is enough. Developers
+  who want to work against a local checkout can add their own
+  override locally.
+
 ### **BREAKING** — Billbird tools moved to `billbird-client`
 
 - `2026-05-22` — Decoupled Gitsweeper from Billbird's REST shape. The

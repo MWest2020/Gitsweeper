@@ -13,8 +13,8 @@ Reconcile reads Billbird's REST API through the standalone [`billbird-client`](h
 
 ```bash
 uv add 'gitsweeper[billbird]'
-# or, while billbird-client is unreleased on PyPI:
-uv add 'billbird-client@git+https://github.com/MWest2020/billbird-client.git'
+# or directly:
+uv add billbird-client
 ```
 
 Without it, `gitsweeper reconcile` and the `gitsweeper_reconcile` MCP tool exit cleanly with a `billbird_client_unavailable` message.
