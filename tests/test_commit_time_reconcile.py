@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 import pytest
+from billbird_client import BillbirdClient
 
 from gitsweeper.capabilities.commit_time_reconcile import (
     _aggregate_commits,
@@ -19,7 +20,6 @@ from gitsweeper.capabilities.commit_time_reconcile import (
     classify,
     reconcile,
 )
-from gitsweeper.lib.billbird_client import BillbirdClient
 from gitsweeper.lib.github_client import GitHubClient
 
 # --- Classifier ----------------------------------------------------

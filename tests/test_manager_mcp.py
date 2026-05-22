@@ -2,41 +2,35 @@
 
 Two surfaces are covered:
 
-1. The fixed tool registry — ordering, names, schemas.
-2. Each tool's error envelopes when Billbird is misconfigured or
-   returns errors. The Gitsweeper-side tools' cache-missing paths are
-   exercised against a temporary SQLite cache.
+1. The fixed tool registry — ordering, names, no mutation tools.
+2. Each remaining tool's structured error envelopes when its cache /
+   dependency is missing.
+
+After the `gitsweeper-billbird-extract` change, Billbird-only read
+tools live in the separate `billbird-client` package; only
+`gitsweeper_reconcile` remains as a Billbird-touching tool here, and
+it imports `billbird-client` as an optional dependency.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from gitsweeper.capabilities.manager_mcp.periods import parse_period
 from gitsweeper.capabilities.manager_mcp.registry import TOOLS, find, tool_names
 from gitsweeper.capabilities.manager_mcp.tools import (
-    billbird_cycle_time,
-    billbird_hours_summary,
-    billbird_plan_vs_actual,
-    billbird_recent_activity,
     gitsweeper_classify,
     gitsweeper_first_response,
     gitsweeper_patterns,
     gitsweeper_pr_throughput,
-    team_status_report,
+    gitsweeper_reconcile,
 )
 
 # --- Registry --------------------------------------------------------------
 
 
-def test_registry_has_ten_tools_in_declared_order():
-    assert len(TOOLS) == 10
+def test_registry_has_five_tools_in_declared_order():
+    assert len(TOOLS) == 5
     assert tool_names() == [
-        "team_status_report",
-        "billbird_hours_summary",
-        "billbird_plan_vs_actual",
-        "billbird_cycle_time",
-        "billbird_recent_activity",
         "gitsweeper_pr_throughput",
         "gitsweeper_first_response",
         "gitsweeper_classify",
@@ -46,7 +40,6 @@ def test_registry_has_ten_tools_in_declared_order():
 
 
 def test_registry_has_no_mutation_tools():
-    # Read-only contract: refuse any tool whose name suggests mutation.
     forbidden_prefixes = ("create_", "update_", "delete_", "revoke_", "post_")
     for name in tool_names():
         assert not name.startswith(forbidden_prefixes), name
@@ -62,102 +55,16 @@ def test_every_tool_schema_is_jsonschema_object():
         assert "properties" in spec.input_schema
 
 
-# --- Period parsing --------------------------------------------------------
-
-
-def test_parse_period_month():
-    p = parse_period("2026-04")
-    assert p.label == "2026-04"
-    assert p.from_iso.startswith("2026-04-01")
-    assert p.until_iso.startswith("2026-04-30")
-
-
-def test_parse_period_day():
-    p = parse_period("2026-04-15")
-    assert p.label == "2026-04-15"
-    assert p.from_iso.startswith("2026-04-15")
-    assert p.until_iso.startswith("2026-04-15")
-
-
-def test_parse_period_last_n():
-    p = parse_period("last-7d")
-    # both timestamps should be ISO Z
-    assert p.from_iso.endswith("Z")
-    assert p.until_iso.endswith("Z")
-
-
-def test_parse_period_invalid():
-    with pytest.raises(ValueError):
-        parse_period("nope")
-
-
-def test_parse_period_zero_days():
-    with pytest.raises(ValueError):
-        parse_period("last-0d")
-
-
-# --- Billbird tools — config and error envelopes ---------------------------
-
-
-@pytest.fixture(autouse=True)
-def clear_billbird_env(monkeypatch):
-    """Make sure no test inherits Billbird env vars from the host."""
-    monkeypatch.delenv("BILLBIRD_API_URL", raising=False)
-    monkeypatch.delenv("BILLBIRD_API_TOKEN", raising=False)
-    yield
-
-
-def test_hours_summary_without_billbird_config_returns_structured_error():
-    out = billbird_hours_summary(period="2026-04", group_by="user")
-    assert out["error"] == "billbird_not_configured"
-    assert "BILLBIRD_API_URL" in out["missing"]
-    assert "BILLBIRD_API_TOKEN" in out["missing"]
-    assert out["docs"] == "docs/mcp.md"
-
-
-def test_hours_summary_invalid_group_by():
-    out = billbird_hours_summary(period="2026-04", group_by="bogus")
-    assert out["error"] == "invalid_argument"
-    assert out["field"] == "group_by"
-
-
-def test_hours_summary_invalid_period(monkeypatch):
-    monkeypatch.setenv("BILLBIRD_API_URL", "https://example.test")
-    monkeypatch.setenv("BILLBIRD_API_TOKEN", "bb_x")
-    out = billbird_hours_summary(period="bad", group_by="user")
-    assert out["error"] == "invalid_argument"
-    assert out["field"] == "period"
-
-
-def test_plan_vs_actual_without_billbird_config():
-    out = billbird_plan_vs_actual()
-    assert out["error"] == "billbird_not_configured"
-
-
-def test_plan_vs_actual_invalid_status(monkeypatch):
-    monkeypatch.setenv("BILLBIRD_API_URL", "https://example.test")
-    monkeypatch.setenv("BILLBIRD_API_TOKEN", "bb_x")
-    out = billbird_plan_vs_actual(status="bogus")
-    assert out["error"] == "invalid_argument"
-    assert out["field"] == "status"
-
-
-def test_recent_activity_without_billbird_config():
-    out = billbird_recent_activity(since="2026-05-01")
-    assert out["error"] == "billbird_not_configured"
-
-
-def test_cycle_time_returns_not_implemented():
-    out = billbird_cycle_time()
-    assert out["error"] == "not_implemented"
-
-
-def test_team_status_report_fails_fast_without_billbird():
-    out = team_status_report(period="2026-04", scope={"repo": "org/repo"})
-    # Pre-flight Billbird check should short-circuit BEFORE the
-    # Gitsweeper sections run, so no partial result keys exist.
-    assert out["error"] == "billbird_not_configured"
-    assert "data" not in out
+def test_registry_has_no_billbird_only_tools():
+    """Guard the extract: billbird-only read tools must not regress in."""
+    forbidden = {
+        "billbird_hours_summary",
+        "billbird_plan_vs_actual",
+        "billbird_cycle_time",
+        "billbird_recent_activity",
+        "team_status_report",
+    }
+    assert forbidden.isdisjoint(tool_names())
 
 
 # --- Gitsweeper-side tools — cache-missing path ---------------------------
@@ -191,3 +98,47 @@ def test_patterns_returns_cache_missing_for_unknown_repo(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     out = gitsweeper_patterns(repository="org/repo-never-fetched")
     assert out["error"] == "cache_missing"
+
+
+# --- Reconcile depends on billbird-client ---------------------------------
+
+
+@pytest.fixture
+def _no_billbird_env(monkeypatch):
+    monkeypatch.delenv("BILLBIRD_API_URL", raising=False)
+    monkeypatch.delenv("BILLBIRD_API_TOKEN", raising=False)
+    yield
+
+
+def test_reconcile_invalid_repo_spec():
+    out = gitsweeper_reconcile(repository="not-a-pair")
+    assert out["error"] == "invalid_argument"
+
+
+def test_reconcile_without_billbird_config(_no_billbird_env):
+    """`billbird-client` is installed in dev; without env vars set the
+    Billbird-not-configured branch fires."""
+    out = gitsweeper_reconcile(repository="org/repo")
+    assert out["error"] == "billbird_not_configured"
+    assert "BILLBIRD_API_URL" in out["missing"]
+    assert "BILLBIRD_API_TOKEN" in out["missing"]
+
+
+def test_reconcile_handles_missing_billbird_client(monkeypatch):
+    """When `billbird-client` is not installed, the tool surfaces a
+    `billbird_client_unavailable` error rather than crashing with
+    ImportError."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def _raise_for_billbird(name, *args, **kwargs):
+        if name == "billbird_client":
+            raise ImportError("simulated: billbird-client is not installed")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _raise_for_billbird)
+
+    out = gitsweeper_reconcile(repository="org/repo")
+    assert out["error"] == "billbird_client_unavailable"
+    assert "billbird-client" in out["hint"]

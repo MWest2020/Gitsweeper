@@ -25,11 +25,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from gitsweeper.lib.billbird_client import (
+from billbird_client import (
     BillbirdClient,
     BillbirdHTTPError,
     BillbirdNotConfigured,
 )
+
 from gitsweeper.lib.commit_time import parse_issue_refs, parse_time_footer
 from gitsweeper.lib.github_client import GitHubClient
 from gitsweeper.lib.rendering import AnalysisResult

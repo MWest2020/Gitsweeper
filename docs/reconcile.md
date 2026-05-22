@@ -7,6 +7,18 @@
 
 The tool aggregates both sides per `(repository, author, issue)` group, computes drift in minutes, and classifies the gap. Use it for sprint-end audits, monthly reporting, or the "is everyone logging?" check at any time.
 
+## Install the optional dependency
+
+Reconcile reads Billbird's REST API through the standalone [`billbird-client`](https://github.com/MWest2020/billbird-client) package — an optional dependency:
+
+```bash
+uv add 'gitsweeper[billbird]'
+# or, while billbird-client is unreleased on PyPI:
+uv add 'billbird-client@git+https://github.com/MWest2020/billbird-client.git'
+```
+
+Without it, `gitsweeper reconcile` and the `gitsweeper_reconcile` MCP tool exit cleanly with a `billbird_client_unavailable` message.
+
 ## Run it
 
 ```bash

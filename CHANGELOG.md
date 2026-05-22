@@ -8,6 +8,34 @@ once there is working code worth tagging.
 
 ## [Unreleased]
 
+### **BREAKING** — Billbird tools moved to `billbird-client`
+
+- `2026-05-22` — Decoupled Gitsweeper from Billbird's REST shape. The
+  five Billbird-only MCP tools (`billbird_hours_summary`,
+  `billbird_plan_vs_actual`, `billbird_cycle_time`,
+  `billbird_recent_activity`, `team_status_report`) have moved to the
+  separate [`billbird-client`](https://github.com/MWest2020/billbird-client)
+  package, where they belong. `team_status_report` is retired entirely;
+  the building blocks live in `billbird-mcp` for the Billbird half and
+  in this server's individual analytics tools for the PR half.
+- The in-tree `lib/billbird_client.py`, `manager_mcp/periods.py`, and
+  the corresponding fake-Billbird test suite are deleted.
+- The reconcile tool (`gitsweeper reconcile` and
+  `gitsweeper_reconcile` MCP) now imports `BillbirdClient` from the
+  external `billbird-client` package as an optional dependency. If
+  the package is not installed, the tool returns a structured
+  `billbird_client_unavailable` error rather than crashing.
+- `pyproject.toml` gains `[project.optional-dependencies] billbird = ["billbird-client>=0.1.0"]`.
+- MCP registry shrinks from 10 to 5 tools (PR throughput, first
+  response, classify, reconcile, patterns). `tests/test_manager_mcp.py`
+  and `scripts/mcp_smoke.py` updated accordingly. 151 tests pass.
+- **Migration:** operators who used the Billbird tools through
+  `gitsweeper mcp` should add `billbird-mcp` (from `billbird-client`)
+  to their MCP-client configuration. The two servers compose; neither
+  requires the other.
+
+
+
 ### Added
 
 - `2026-05-21` — Reconcile capability (`gitsweeper reconcile <repo>`,

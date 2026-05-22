@@ -1,10 +1,16 @@
-"""Tool registry.
+"""Tool registry — Gitsweeper analytics only.
 
-A single fixed list keyed by tool name. Adding or removing a tool is a
-code change in this file — not a runtime config flag. The order matters:
-the AI client receives tools in the order they appear here, so leading
-with high-value tools (the composite report, then the most-asked
-queries) makes for better selection.
+A single fixed list keyed by tool name. Adding or removing a tool is
+a code change in this file — not a runtime config flag. The order
+matters: the AI client receives tools in this order and tends to
+prefer the first ones it sees.
+
+After the `gitsweeper-billbird-extract` change, every Billbird-only
+read tool has moved to the standalone `billbird-client` package (see
+`billbird-mcp`). The single Billbird-touching tool that remains here
+is `gitsweeper_reconcile`, because reconcile is genuinely cross-source
+(commits from GitHub + logs from Billbird) and lives in the analytics
+workbench.
 """
 
 from __future__ import annotations
@@ -18,156 +24,13 @@ from gitsweeper.capabilities.manager_mcp import tools as t
 
 @dataclass(frozen=True)
 class ToolSpec:
-    """One MCP tool, plus enough JSON-schema to advertise it to the
-    AI client. Schemas are kept inline so they stay next to the
-    function they document; that beats a separate schema file that
-    drifts."""
-
     name: str
     description: str
     input_schema: dict[str, Any]
     handler: Callable[..., dict[str, Any] | list[Any]]
 
 
-_PERIOD_DESC = (
-    "Period like '2026-04', '2026-04-15', or 'last-7d'. UTC. The response "
-    "echoes the resolved start/end timestamps."
-)
-
-
 TOOLS: list[ToolSpec] = [
-    ToolSpec(
-        name="team_status_report",
-        description=(
-            "Composite weekly status: hours summary + plan-vs-actual + PR "
-            "throughput + first-response + classification + patterns. Returns "
-            "both structured data and a single markdown document. "
-            "Fails fast on missing Billbird config."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "period": {"type": "string", "description": _PERIOD_DESC},
-                "scope": {
-                    "type": "object",
-                    "description": (
-                        "Optional scope filter. Keys: 'repo' (owner/name), "
-                        "'client' (exact name), 'author' (GitHub login), "
-                        "'hours_group_by' (one of user/client/repo/issue, "
-                        "defaults to 'user')."
-                    ),
-                    "properties": {
-                        "repo": {"type": "string"},
-                        "client": {"type": "string"},
-                        "author": {"type": "string"},
-                        "hours_group_by": {
-                            "type": "string",
-                            "enum": ["user", "client", "repo", "issue"],
-                        },
-                    },
-                    "additionalProperties": False,
-                },
-            },
-            "required": ["period"],
-            "additionalProperties": False,
-        },
-        handler=t.team_status_report,
-    ),
-    ToolSpec(
-        name="billbird_hours_summary",
-        description=(
-            "Aggregate active log minutes for a period, grouped by user, "
-            "client, repo, or issue. Output unit: minutes."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "period": {"type": "string", "description": _PERIOD_DESC},
-                "group_by": {
-                    "type": "string",
-                    "enum": ["user", "client", "repo", "issue"],
-                    "description": "One of user, client, repo, issue.",
-                },
-                "repository": {"type": "string", "description": "Optional owner/name filter"},
-                "client": {"type": "string", "description": "Optional client name (exact match)"},
-                "user": {"type": "string", "description": "Optional GitHub username filter"},
-            },
-            "required": ["period", "group_by"],
-            "additionalProperties": False,
-        },
-        handler=t.billbird_hours_summary,
-    ),
-    ToolSpec(
-        name="billbird_plan_vs_actual",
-        description=(
-            "Per-issue variance between active plan and active log totals. "
-            "Output unit: minutes. Ordered by absolute variance descending so "
-            "the issues most in need of attention lead the list."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "period": {"type": "string", "description": "Optional " + _PERIOD_DESC},
-                "status": {
-                    "type": "string",
-                    "enum": ["no_plan", "under", "on_target", "over"],
-                    "description": "Optional status filter",
-                },
-                "repository": {"type": "string"},
-                "client": {"type": "string"},
-            },
-            "required": [],
-            "additionalProperties": False,
-        },
-        handler=t.billbird_plan_vs_actual,
-    ),
-    ToolSpec(
-        name="billbird_cycle_time",
-        description=(
-            "Cycle-time per issue and aggregate for a scope. Stub: returns "
-            "a structured 'not_implemented' response until Billbird exposes "
-            "the matching REST endpoint."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "period": {"type": "string", "description": "Optional " + _PERIOD_DESC},
-                "repository": {"type": "string"},
-            },
-            "required": [],
-            "additionalProperties": False,
-        },
-        handler=t.billbird_cycle_time,
-    ),
-    ToolSpec(
-        name="billbird_recent_activity",
-        description=(
-            "Recent log + plan entries (combined, type-tagged 'log' or "
-            "'plan'). Newest first. Output unit: minutes."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "since": {
-                    "type": "string",
-                    "description": (
-                        "Lower bound on creation timestamp "
-                        "(ISO 8601 UTC, e.g. 2026-05-17T00:00:00Z)"
-                    ),
-                },
-                "limit": {
-                    "type": "integer",
-                    "default": 50,
-                    "minimum": 1,
-                    "maximum": 500,
-                    "description": "Maximum number of rows returned. Default 50.",
-                },
-            },
-            "required": ["since"],
-            "additionalProperties": False,
-        },
-        handler=t.billbird_recent_activity,
-    ),
     ToolSpec(
         name="gitsweeper_pr_throughput",
         description=(
@@ -229,7 +92,8 @@ TOOLS: list[ToolSpec] = [
             "Reconcile commit Time: footers against Billbird /log entries. "
             "Returns one row per (repo, author, issue) with commit minutes, "
             "log minutes, drift, and status (aligned / commits_only / "
-            "logs_only / over_committed / over_logged). Output unit: minutes."
+            "logs_only / over_committed / over_logged). Output unit: minutes. "
+            "Requires the `billbird-client` optional dependency."
         ),
         input_schema={
             "type": "object",

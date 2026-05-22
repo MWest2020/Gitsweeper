@@ -43,6 +43,32 @@ wheels = [
 ]
 
 [[package]]
+name = "billbird-client"
+version = "0.1.0"
+source = { editable = "../billbird-client" }
+dependencies = [
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "mcp", specifier = ">=1.2" },
+    { name = "rich", specifier = ">=13.0" },
+    { name = "typer", specifier = ">=0.12" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-httpx", specifier = ">=0.30" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.4.22"
 source = { registry = "https://pypi.org/simple" }
@@ -354,8 +380,14 @@ dependencies = [
     { name = "typer" },
 ]
 
+[package.optional-dependencies]
+billbird = [
+    { name = "billbird-client" },
+]
+
 [package.dev-dependencies]
 dev = [
+    { name = "billbird-client" },
     { name = "pytest" },
     { name = "pytest-httpx" },
     { name = "ruff" },
@@ -363,6 +395,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "billbird-client", marker = "extra == 'billbird'", editable = "../billbird-client" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "mcp", specifier = ">=1.2" },
@@ -370,9 +403,11 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0" },
     { name = "typer", specifier = ">=0.12" },
 ]
+provides-extras = ["billbird"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "billbird-client", editable = "../billbird-client" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-httpx", specifier = ">=0.30" },
     { name = "ruff", specifier = ">=0.6" },
