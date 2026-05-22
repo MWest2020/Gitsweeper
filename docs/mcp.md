@@ -40,22 +40,23 @@ Restart Claude Desktop. The tools listed below appear under the server's name.
 
 ## Available tools
 
-Ten tools, registered in this fixed order:
+Five tools, registered in this fixed order:
 
 | Tool | What it returns |
 |---|---|
-| `team_status_report` | Composite report: hours + plan-vs-actual + PR analyses. Returns both `data` and a `markdown` rendering. |
-| `billbird_hours_summary` | Aggregate active log minutes for a period, grouped by user / client / repo / issue. |
-| `billbird_plan_vs_actual` | Per-issue variance between active plan and active logs. Ordered by absolute variance descending. |
-| `billbird_cycle_time` | Stub. Returns `not_implemented` until Billbird exposes the cycle-time REST endpoint. |
-| `billbird_recent_activity` | Recent log and plan entries combined, type-tagged, newest first. |
 | `gitsweeper_pr_throughput` | Time-to-merge percentiles for a repo. |
 | `gitsweeper_first_response` | Time-to-first-response percentiles. Cache-only — never fetches. |
 | `gitsweeper_classify` | Self-pulled vs maintainer-closed for closed-unmerged PRs. Cache-only. |
-| `gitsweeper_reconcile` | One row per `(repo, author, issue)` cross-checking commit `Time:` footers against Billbird `/log` entries. Returns drift and a status (`aligned` / `commits_only` / `logs_only` / `over_committed` / `over_logged`). See [reconcile.md](reconcile.md). |
+| `gitsweeper_reconcile` | One row per `(repo, author, issue)` cross-checking commit `Time:` footers against Billbird `/log` entries. Returns drift and a status (`aligned` / `commits_only` / `logs_only` / `over_committed` / `over_logged`). See [reconcile.md](reconcile.md). Requires the `billbird-client` optional dependency. |
 | `gitsweeper_patterns` | Day-of-week and hour-of-day patterns for submissions and responses. |
 
-Every numeric field in a response carries an explicit `unit` (`minutes`, `hours`, `days`, `count`), and Billbird-touching responses echo back the resolved `period` block. Tools never return a bare "total" without naming the scope.
+Every numeric field in a response carries an explicit `unit` (`minutes`, `hours`, `days`, `count`). Tools never return a bare "total" without naming the scope.
+
+## Billbird tools live elsewhere
+
+If you want to query Billbird's hours / plans / cycle time directly, install [`billbird-client`](https://github.com/MWest2020/billbird-client) and point your MCP client at its `billbird-mcp` server. Gitsweeper used to host those tools, but they belong with the Billbird-only read surface — Gitsweeper is a generic analytics workbench and Billbird is one source among potentially many.
+
+The two servers compose nicely: register both in your Claude Desktop config and you get analytics + Billbird reads under one roof, without either repo carrying a hard dependency on the other.
 
 ## Read-only contract
 

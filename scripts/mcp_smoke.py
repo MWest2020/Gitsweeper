@@ -106,44 +106,46 @@ def main() -> int:
         tools = recv(proc)
         names = [t["name"] for t in tools["result"]["tools"]]
         expected = {
-            "team_status_report",
-            "billbird_hours_summary",
-            "billbird_plan_vs_actual",
-            "billbird_cycle_time",
-            "billbird_recent_activity",
             "gitsweeper_pr_throughput",
             "gitsweeper_first_response",
             "gitsweeper_classify",
             "gitsweeper_reconcile",
             "gitsweeper_patterns",
         }
+        forbidden = {
+            "billbird_hours_summary",
+            "billbird_plan_vs_actual",
+            "billbird_cycle_time",
+            "billbird_recent_activity",
+            "team_status_report",
+        }
         missing = expected - set(names)
+        regressed = forbidden & set(names)
         if missing:
             failures.append(f"tools/list missing: {sorted(missing)}")
+        if regressed:
+            failures.append(
+                f"Billbird-only tools regressed into Gitsweeper: {sorted(regressed)}"
+            )
         print(f"\n== tools/list ({len(names)}) ==")
         for n in names:
             print(f"  {n}")
 
-        # 4. billbird_plan_vs_actual — the killer manager query.
-        result = call_tool(proc, "billbird_plan_vs_actual", {}, 3)
-        print("\n== billbird_plan_vs_actual ==")
-        print(json.dumps(result, indent=2)[:600])
-        if result.get("error"):
-            failures.append(f"plan_vs_actual returned error: {result['error']}")
-
-        # 5. billbird_hours_summary — period + group_by echo check.
+        # 4. gitsweeper_reconcile — the cross-source tool that remains here.
+        # Without billbird-client installed the tool surfaces a structured
+        # error; without an in-scope cache it surfaces cache_missing. Either
+        # is acceptable for a smoke run: we just verify the tool exists and
+        # returns *something* JSON-shaped.
         result = call_tool(
             proc,
-            "billbird_hours_summary",
-            {"period": "last-30d", "group_by": "user"},
-            4,
+            "gitsweeper_reconcile",
+            {"repository": "MWest2020/Billbird"},
+            3,
         )
-        print("\n== billbird_hours_summary ==")
-        print(json.dumps(result, indent=2)[:500])
-        if result.get("error"):
-            failures.append(f"hours_summary returned error: {result['error']}")
-        elif result.get("unit") != "minutes":
-            failures.append("hours_summary missing unit=minutes")
+        print("\n== gitsweeper_reconcile ==")
+        print(json.dumps(result, indent=2)[:600])
+        if not isinstance(result, dict):
+            failures.append("reconcile did not return a dict")
 
     finally:
         proc.terminate()

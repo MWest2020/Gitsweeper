@@ -486,7 +486,15 @@ def reconcile(
     groups both per (repo, author, issue), and prints drift per group.
     """
     from gitsweeper.capabilities import commit_time_reconcile as reconcile_cap
-    from gitsweeper.lib.billbird_client import BillbirdNotConfigured
+    try:
+        from billbird_client import BillbirdNotConfigured
+    except ImportError as exc:
+        typer.echo(
+            "the `billbird-client` package is not installed; "
+            "install with `uv add billbird-client` or `pip install gitsweeper[billbird]`",
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
 
     owner, name = _split_repo(repo)
     since_iso: str | None = None
