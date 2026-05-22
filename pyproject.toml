@@ -18,9 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 # Reconcile + future cross-source tools need a Billbird-side reader.
 # Install with `uv add gitsweeper[billbird]` or
-# `pip install gitsweeper[billbird]`. While billbird-client is unreleased
-# on PyPI, install via the git URL:
-#   uv add billbird-client@git+https://github.com/MWest2020/billbird-client.git
+# `pip install gitsweeper[billbird]`.
 billbird = ["billbird-client>=0.1.0"]
 
 [project.scripts]
@@ -63,6 +61,3 @@ select = ["E", "F", "I", "B", "UP", "W"]
 # Embedded HTML/CSS strings are inherently long; reformatting hurts
 # readability of the markup.
 "src/gitsweeper/capabilities/dashboard.py" = ["E501"]
-
-[tool.uv.sources]
-billbird-client = { path = "../billbird-client", editable = true }
