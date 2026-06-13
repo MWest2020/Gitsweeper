@@ -9,58 +9,6 @@ covers data acquisition from the GitHub REST API, local persistence
 so re-analysis is free, and the analyses themselves. Output is
 delegated to the `report-rendering` capability.
 ## Requirements
-### Requirement: Fetch all pull requests for a repository
-
-The system SHALL fetch every pull request belonging to a specified
-GitHub `owner/repo` via the GitHub REST API, following pagination
-until all pages have been retrieved.
-
-#### Scenario: Pagination via Link header
-
-- **GIVEN** the repository has more pull requests than fit on a
-  single REST page
-- **WHEN** the user requests a fetch
-- **THEN** the system follows the `rel="next"` URL from each
-  response's `Link` header until no `next` link remains
-- **AND** every pull request from every page is captured
-
-#### Scenario: Primary rate limit reached
-
-- **GIVEN** the GitHub primary rate limit (`X-RateLimit-Remaining: 0`)
-  has been hit during a fetch
-- **WHEN** the next request would otherwise be sent
-- **THEN** the system waits until the timestamp in
-  `X-RateLimit-Reset` before continuing
-- **AND** the wait is reported to the user so a long pause is not
-  mistaken for a hang
-
-#### Scenario: Secondary rate limit (abuse detection) hit
-
-- **GIVEN** GitHub returns a `403` or `429` with a `Retry-After`
-  header indicating a secondary rate limit
-- **WHEN** the system observes that response
-- **THEN** the system sleeps for the duration in `Retry-After`
-  before retrying the same request
-- **AND** the retry uses the same idempotent request, not a new one
-
-#### Scenario: Authenticated fetch via GITHUB_TOKEN
-
-- **GIVEN** the environment variable `GITHUB_TOKEN` is set to a
-  Personal Access Token
-- **WHEN** the system issues requests to the GitHub API
-- **THEN** every request carries the token in an `Authorization`
-  header
-- **AND** the higher authenticated rate-limit budget applies
-
-#### Scenario: Unauthenticated degraded mode
-
-- **GIVEN** `GITHUB_TOKEN` is not set
-- **WHEN** the user requests a fetch
-- **THEN** the system proceeds without an `Authorization` header
-- **AND** warns the user once that the unauthenticated rate-limit
-  budget is small and the fetch may be slow or incomplete for large
-  repositories
-
 ### Requirement: Persist fetched pull requests so re-analysis is free
 
 The system SHALL store every fetched pull request in the local
@@ -288,67 +236,20 @@ across days of the week and hours of the day, scoped optionally by
 - **THEN** all reported counts and medians cover only pull requests
   authored by that login
 
-### Requirement: Fetch multiple repositories in one invocation
+### Requirement: Acquire pull requests through the forge-access capability
 
-The system SHALL accept multiple `owner/repo` arguments to the
-`fetch` command and ingest each repository into the same local
-cache, applying the existing pagination and rate-limit behaviour
-once per repository in sequence.
+The system SHALL obtain pull/merge requests through the
+`forge-access` capability rather than calling any forge's API
+directly, so that throughput analysis is identical regardless of
+which forge backs the repository.
 
-#### Scenario: Multiple repos passed as positional arguments
+#### Scenario: Throughput analysis is forge-agnostic
 
-- **GIVEN** the user runs
-  `gitsweeper fetch ConductionNL/openregister ConductionNL/opencatalogi`
-- **WHEN** the command runs
-- **THEN** both repositories are fetched and persisted into the
-  same `repositories` table within the same SQLite cache
-- **AND** progress for each repository is reported in turn so a
-  long total run is not mistaken for a hang
-
-#### Scenario: Per-repo failures do not abort the whole batch
-
-- **GIVEN** the second of three `owner/repo` arguments returns a
-  permanent error from GitHub (for example a 404 because the repo
-  was renamed)
-- **WHEN** the fetch command processes that argument
-- **THEN** the error is reported on stderr with the offending
-  `owner/repo`
-- **AND** the remaining repositories are still fetched
-- **AND** the command exits with a non-zero status to signal partial
-  failure, while preserving the data that did fetch
-
-### Requirement: Fetch every repository in a GitHub organisation
-
-The system SHALL accept `--org <name>` on the `fetch` command,
-listing every repository owned by that organisation that the
-authenticated user can read, and ingesting each one as if its
-`owner/repo` had been passed positionally.
-
-#### Scenario: --org expands to every repo in the org
-
-- **GIVEN** the user runs `gitsweeper fetch --org ConductionNL`
-- **WHEN** the org has more repositories than fit on a single REST
-  page
-- **THEN** the system follows the `Link rel=next` chain until every
-  repository is enumerated
-- **AND** each enumerated repository is fetched into the cache
-
-#### Scenario: --org and positional repos can be combined
-
-- **GIVEN** the user supplies both `--org ConductionNL` and the
-  positional argument `nextcloud/app-certificate-requests`
-- **WHEN** the command runs
-- **THEN** every repo from the org plus the positional repo are
-  fetched
-- **AND** a repo that appears in both sources is fetched only once
-
-#### Scenario: Empty or missing org reports clearly
-
-- **GIVEN** `--org` names an organisation that returns zero
-  repositories or does not exist
-- **WHEN** the command runs
-- **THEN** the system exits with a non-zero status and a message
-  naming the offending org
-- **AND** does not attempt to fetch any positional repositories
-  unless those were also given (they are still attempted)
+- **GIVEN** a repository whose pull requests have been fetched via
+  `forge-access`
+- **WHEN** the user runs throughput analysis
+- **THEN** the percentile, `--since`, `--author`, first-response, and
+  temporal-pattern requirements operate on the normalized records
+- **AND** the analysis code contains no reference to a specific
+  forge's API, headers, pagination, or rate-limit handling
 

@@ -43,25 +43,13 @@ The system SHALL parse issue numbers from a commit message via `#N`-style refere
 - **WHEN** parsing `"see other/repo#10"`
 - **THEN** the parser returns `[]`
 
-### Requirement: Fetch commits from a repo
-
-The system SHALL expose a `list_commits(owner, name, *, since, sha)` method on the GitHub client. It SHALL paginate over `GET /repos/{owner}/{name}/commits` using the existing `Link rel=next` machinery. The `since` parameter SHALL accept an ISO 8601 timestamp and SHALL be passed through verbatim to GitHub. The `sha` parameter SHALL accept a branch name (default: the repo's default branch).
-
-#### Scenario: Recent commits on the default branch
-- **WHEN** the client calls `list_commits("MWest2020", "Billbird", since="2026-05-01T00:00:00Z")`
-- **THEN** the iterator yields every commit on the default branch from that timestamp forward, paginated transparently
-
-#### Scenario: Commits on a non-default branch
-- **WHEN** the client calls `list_commits("MWest2020", "Billbird", sha="smoke-fixtures")`
-- **THEN** the iterator yields commits on the `smoke-fixtures` branch
-
 ### Requirement: Reconcile commit footers against Billbird logs
 
 The system SHALL expose a reconciliation function that:
 
 1. Fetches commits via `list_commits` for the given repo and range
 2. Parses each commit message for `Time:` footers and `#N` issue references
-3. Pulls Billbird time entries for the same period via `BillbirdClient.time_entries`
+3. Pulls Billbird time entries for the same period via `BillbirdClient` **imported from the external `billbird-client` package** (declared as an optional dependency under the `billbird` extra)
 4. Groups both sides per `(repository, author, issue_number)` — falling back to `(repository, author, *)` for commits without an issue reference
 5. Computes `drift_minutes = logged_minutes - commit_minutes` per group
 6. Classifies each group:
@@ -70,6 +58,8 @@ The system SHALL expose a reconciliation function that:
    - `logs_only` if logged_minutes > 0 and commit_minutes == 0
    - `over_committed` if commit_minutes - logged_minutes > tolerance
    - `over_logged` if logged_minutes - commit_minutes > tolerance
+
+When the `billbird-client` package is not installed, the reconciliation function SHALL raise a clear error (or, at the MCP boundary, return a structured `billbird_client_unavailable` envelope) instead of failing with an import error. Reconcile is the **only** Billbird-touching capability that remains in Gitsweeper; everything else in the Billbird-data space lives in `billbird-client` directly.
 
 #### Scenario: Aligned commit and log
 - **WHEN** issue #5 has commits summing 2h and a `/log 2h05m` entry
@@ -86,6 +76,10 @@ The system SHALL expose a reconciliation function that:
 #### Scenario: Commits without an issue reference
 - **WHEN** a commit footers 1h and references no issue
 - **THEN** the reconcile groups it under `(repo, author, null)` — still classifiable, just not issue-attributable
+
+#### Scenario: Missing optional dependency
+- **WHEN** the `billbird-client` package is not installed and the reconcile capability is invoked
+- **THEN** the CLI exits non-zero with a message naming the package and the install command; the MCP tool returns `{"error": "billbird_client_unavailable", ...}`
 
 ### Requirement: CLI command `gitsweeper reconcile`
 
@@ -110,4 +104,19 @@ The system SHALL register an MCP tool that wraps the reconciliation function. Th
 #### Scenario: Tool propagates Billbird configuration errors
 - **WHEN** the tool is invoked while `BILLBIRD_API_TOKEN` is unset
 - **THEN** the response is the structured `{"error": "billbird_not_configured", "missing": [...], "docs": "docs/mcp.md"}` envelope used by other Billbird-touching tools
+
+### Requirement: Acquire commits through the forge-access capability
+
+The system SHALL obtain the commits it reconciles through the
+`forge-access` capability rather than calling any forge's API
+directly, so reconcile works against any supported forge.
+
+#### Scenario: Reconcile sources commits via forge-access
+
+- **GIVEN** a repository whose commits are needed for reconciliation
+- **WHEN** `gitsweeper reconcile` runs
+- **THEN** commits are fetched via `forge-access` with its `since`
+  and branch bounds
+- **AND** the footer-extraction and Billbird-matching requirements
+  operate on those commits unchanged
 
