@@ -8,6 +8,7 @@ from gitsweeper.lib.forge import (
     SUPPORTED_FORGES,
     ForgejoClient,
     GitHubClient,
+    GitLabClient,
     UnsupportedForgeError,
     get_forge_provider,
 )
@@ -66,10 +67,39 @@ def test_bare_owner_repo_still_github_even_with_forgejo_env(
     provider.close()
 
 
+def test_explicit_forge_gitlab_overrides() -> None:
+    provider = get_forge_provider("o/r", forge="gitlab")
+    assert isinstance(provider, GitLabClient)
+    provider.close()
+
+
+def test_gitlab_host_detected() -> None:
+    provider = get_forge_provider("https://gitlab.com/gitlab-org/gitlab")
+    assert isinstance(provider, GitLabClient)
+    provider.close()
+
+
+def test_self_hosted_gitlab_host_detected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITSWEEPER_GITLAB_URL", "https://gitlab.example.org")
+    provider = get_forge_provider("https://gitlab.example.org/team/project")
+    assert isinstance(provider, GitLabClient)
+    provider.close()
+
+
+def test_bare_owner_repo_still_github_even_with_gitlab_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A configured self-hosted GitLab host must not hijack a bare owner/repo.
+    monkeypatch.setenv("GITSWEEPER_GITLAB_URL", "https://gitlab.example.org")
+    provider = get_forge_provider("ConductionNL/openregister")
+    assert isinstance(provider, GitHubClient)
+    provider.close()
+
+
 def test_unsupported_forge_is_named_not_guessed() -> None:
     with pytest.raises(UnsupportedForgeError) as excinfo:
-        get_forge_provider("ConductionNL/openregister", forge="gitlab")
+        get_forge_provider("ConductionNL/openregister", forge="bitbucket")
     message = str(excinfo.value)
-    assert "gitlab" in message
+    assert "bitbucket" in message
     # the error lists what *is* available rather than silently using GitHub
     assert all(name in message for name in SUPPORTED_FORGES)

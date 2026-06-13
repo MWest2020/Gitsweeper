@@ -45,30 +45,35 @@ uv run gitsweeper report nextcloud/app-certificate-requests \
 ### Forges
 
 Gitsweeper acquires data through a forge-provider seam (`lib/forge`).
-**GitHub** (the default) and **Forgejo/Gitea/Codeberg** are supported.
-A bare `owner/repo` resolves to GitHub exactly as it always has, so no
-existing command changes.
+**GitHub** (the default), **Forgejo/Gitea/Codeberg**, and **GitLab** are
+supported. A bare `owner/repo` resolves to GitHub exactly as it always has,
+so no existing command changes.
 
 Select a forge in one of three ways:
 
-- explicitly: `--forge forgejo` (or `--forge github`);
-- by host: a `codeberg.org` URL is detected as Forgejo automatically;
-- self-hosted: set `GITSWEEPER_FORGEJO_URL` to your instance's base URL
-  (e.g. `https://git.example.org`) and a URL on that host is detected as
-  Forgejo.
+- explicitly: `--forge forgejo`, `--forge gitlab` (or `--forge github`);
+- by host: a `codeberg.org` URL is detected as Forgejo, a `gitlab.com` URL
+  as GitLab, automatically;
+- self-hosted: set `GITSWEEPER_FORGEJO_URL` / `GITSWEEPER_GITLAB_URL` to your
+  instance's base URL (e.g. `https://git.example.org`) and a URL on that host
+  is detected accordingly.
 
 ```bash
 export GITHUB_TOKEN=$(gh auth token)        # GitHub: read:repo PAT
 export FORGEJO_TOKEN=...                     # Forgejo/Codeberg/Gitea token
 export GITSWEEPER_FORGEJO_URL=https://...    # self-hosted base URL (defaults to Codeberg)
+export GITLAB_TOKEN=...                      # GitLab personal access token
+export GITSWEEPER_GITLAB_URL=https://...     # self-hosted base URL (defaults to gitlab.com)
 
 gitsweeper fetch --forge forgejo forgejo/forgejo
+gitsweeper fetch --forge gitlab gitlab-org/gitlab-runner
 ```
 
-Forgejo reads can run unauthenticated against public repositories on
-instances that permit it (such as Codeberg), with a warn-once notice;
-set `FORGEJO_TOKEN` for the full rate-limit budget. GitLab is a named
-follow-on change.
+Forgejo and GitLab reads can run unauthenticated against public repositories
+on instances that permit it, with a warn-once notice; set `FORGEJO_TOKEN` /
+`GITLAB_TOKEN` for the full rate-limit budget (GitLab also requires a token
+for some sub-resources, such as a merge request's notes and state events,
+even on public projects).
 
 ### Where things live on disk
 

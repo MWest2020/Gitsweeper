@@ -25,6 +25,7 @@ import pytest
 from gitsweeper.lib.forge.base import ForgeProvider
 from gitsweeper.lib.forge.forgejo import ForgejoClient
 from gitsweeper.lib.forge.github import GitHubClient
+from gitsweeper.lib.forge.gitlab import GitLabClient
 
 # --- GitHub fake transport -------------------------------------------------
 
@@ -128,6 +129,56 @@ def _make_forgejo() -> ForgeProvider:
     )
 
 
+# --- GitLab fake transport -------------------------------------------------
+
+
+def _gitlab_pulls_handler(request: httpx.Request) -> httpx.Response:
+    # page/per_page pagination; advance until an empty page. iid is the number;
+    # state merged -> closed (with merged_at), opened/closed otherwise. Z millis.
+    page = request.url.params.get("page")
+    if page == "1":
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "iid": 1,
+                    "id": 999001,
+                    "state": "merged",
+                    "created_at": "2026-01-01T00:00:00.000Z",
+                    "merged_at": "2026-01-02T12:00:00.000Z",
+                    "closed_at": None,
+                    "author": {"username": "alice"},
+                }
+            ],
+        )
+    if page == "2":
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "iid": 2,
+                    "id": 999002,
+                    "state": "closed",
+                    "created_at": "2026-01-01T00:00:00.000Z",
+                    "merged_at": None,
+                    "closed_at": "2026-01-03T08:00:00.000Z",
+                    "author": {"username": "bob"},
+                }
+            ],
+        )
+    return httpx.Response(200, json=[])
+
+
+def _make_gitlab() -> ForgeProvider:
+    http = httpx.Client(transport=httpx.MockTransport(_gitlab_pulls_handler))
+    return GitLabClient(
+        token="t",
+        http_client=http,
+        sleep_fn=lambda s: None,
+        warn_stream=io.StringIO(),
+    )
+
+
 @dataclass(frozen=True)
 class _Forge:
     name: str
@@ -137,6 +188,7 @@ class _Forge:
 FORGES = [
     _Forge("github", _make_github),
     _Forge("forgejo", _make_forgejo),
+    _Forge("gitlab", _make_gitlab),
 ]
 
 
@@ -169,7 +221,9 @@ def test_closed_without_merge_has_null_merged_at_and_non_null_closed_at(
 def test_raw_is_retained(provider: ForgeProvider) -> None:
     for p in provider.list_pull_requests("o", "r"):
         assert isinstance(p.raw, dict)
-        assert p.raw.get("number") == p.number
+        # The provider's native PR-number field varies (`number` on
+        # GitHub/Forgejo, `iid` on GitLab); the raw object retains one of them.
+        assert p.raw.get("number", p.raw.get("iid")) == p.number
 
 
 def test_timestamps_are_utc_z(provider: ForgeProvider) -> None:

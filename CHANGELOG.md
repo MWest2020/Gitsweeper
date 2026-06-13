@@ -9,6 +9,26 @@ once there is working code worth tagging.
 ## [Unreleased]
 
 ### Added
+- `2026-06-13` — **GitLab provider** (`forge-provider-gitlab` change). A third
+  `ForgeProvider` against the GitLab REST API v4 (`/api/v4`) reads merge
+  requests, notes, merge-request state events (for close actors), group
+  projects, and commits — gitlab.com by default, self-hosted via
+  `GITSWEEPER_GITLAB_URL`. Select it with `--forge gitlab`, by a `gitlab.com`
+  URL, or by a configured self-hosted host; a bare `owner/repo` still resolves
+  to GitHub. The provider absorbs GitLab's divergent vocabulary entirely in
+  its mapping layer with no new model fields: `iid` (per-project number, not
+  the global `id`) → `number`; `opened` → `open`, `merged`/`closed` → `closed`
+  with `merged_at` non-null only when merged; `author.username` → `author`;
+  commits carry no forge login. Projects are addressed by URL-encoded
+  `owner%2Frepo`. Auth is `GITLAB_TOKEN` (`PRIVATE-TOKEN: …`); anonymous reads
+  work for public projects (some sub-resources still require a token). The
+  `resource_state_events` endpoint degrades to no-close-actor (rather than
+  crashing) on old self-hosted GitLab that lacks it. GitLab joins the
+  parameterised provider contract suite as a third forge. Not a breaking CLI
+  change. Repository references now accept GitLab nested namespaces
+  (`group/sub/project`): `_split_repo` splits on the first slash only, so
+  `owner/repo` for GitHub/Forgejo is unchanged while deeper GitLab paths
+  resolve to the full project.
 - `2026-06-13` — **Forgejo/Codeberg provider** (`forge-provider-forgejo`
   change). A second `ForgeProvider` against the Gitea-compatible v1 API
   (`/api/v1`) reads pull requests, comments, the issue *timeline* (for close

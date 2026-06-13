@@ -2,9 +2,10 @@
 
 Order of resolution: an explicit ``forge`` override wins; otherwise the host
 of a fully-qualified reference is consulted (``github.com`` -> GitHub,
-``codeberg.org`` or a configured self-hosted Forgejo host -> Forgejo);
-otherwise a bare ``owner/repo`` defaults to GitHub. An unsupported forge is
-rejected by name rather than silently falling back to GitHub.
+``codeberg.org`` or a configured self-hosted Forgejo host -> Forgejo,
+``gitlab.com`` or a configured self-hosted GitLab host -> GitLab); otherwise a
+bare ``owner/repo`` defaults to GitHub. An unsupported forge is rejected by
+name rather than silently falling back to GitHub.
 """
 
 from __future__ import annotations
@@ -16,10 +17,10 @@ from urllib.parse import urlparse
 from gitsweeper.lib.forge.base import ForgeProvider
 from gitsweeper.lib.forge.forgejo import ForgejoClient
 from gitsweeper.lib.forge.github import GitHubClient
+from gitsweeper.lib.forge.gitlab import GitLabClient
 
-#: Forges with a concrete provider today. GitLab is a named follow-on change;
-#: its host will register here when it lands.
-SUPPORTED_FORGES: tuple[str, ...] = ("github", "forgejo")
+#: Forges with a concrete provider today.
+SUPPORTED_FORGES: tuple[str, ...] = ("github", "forgejo", "gitlab")
 
 
 class UnsupportedForgeError(ValueError):
@@ -39,15 +40,17 @@ def get_forge_provider(
         return GitHubClient.from_env(**kwargs)
     if name == "forgejo":
         return ForgejoClient.from_env(**kwargs)
+    if name == "gitlab":
+        return GitLabClient.from_env(**kwargs)
     available = ", ".join(SUPPORTED_FORGES)
     raise UnsupportedForgeError(
         f"unsupported forge {name!r}; available providers: {available}"
     )
 
 
-def _self_hosted_forgejo_host() -> str | None:
-    """The host of a configured self-hosted Forgejo base URL, if any."""
-    url = os.environ.get("GITSWEEPER_FORGEJO_URL")
+def _self_hosted_host(env_var: str) -> str | None:
+    """The host of a configured self-hosted base URL in ``env_var``, if any."""
+    url = os.environ.get(env_var)
     if not url:
         return None
     return (urlparse(url).hostname or "").lower() or None
@@ -62,8 +65,13 @@ def _detect_forge(repo_ref: str | None) -> str | None:
         return "github"
     if "codeberg.org" in ref:
         return "forgejo"
-    self_hosted = _self_hosted_forgejo_host()
-    if self_hosted and self_hosted in ref:
+    if "gitlab.com" in ref:
+        return "gitlab"
+    forgejo_host = _self_hosted_host("GITSWEEPER_FORGEJO_URL")
+    if forgejo_host and forgejo_host in ref:
         return "forgejo"
+    gitlab_host = _self_hosted_host("GITSWEEPER_GITLAB_URL")
+    if gitlab_host and gitlab_host in ref:
+        return "gitlab"
     # A bare owner/repo carries no host; fall through to the GitHub default.
     return None

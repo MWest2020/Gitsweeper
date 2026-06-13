@@ -41,11 +41,17 @@ def _default_db_path() -> Path:
 
 
 def _split_repo(spec: str) -> tuple[str, str]:
-    if "/" not in spec:
-        raise typer.BadParameter("expected owner/repo, e.g. nextcloud/app-certificate-requests")
+    # Split on the FIRST slash only: owner = first segment, name = the rest.
+    # GitHub/Forgejo names never contain a slash, so `owner/repo` is unchanged.
+    # GitLab projects live in (possibly nested) namespaces — `group/sub/project`
+    # → owner="group", name="sub/project" — which the GitLab provider URL-encodes
+    # into the full project path.
     owner, _, name = spec.partition("/")
-    if not owner or not name or "/" in name:
-        raise typer.BadParameter("expected owner/repo with exactly one slash")
+    if not owner or not name:
+        raise typer.BadParameter(
+            "expected owner/repo (GitHub/Forgejo) or group/.../project "
+            "(GitLab nested namespaces), e.g. nextcloud/app-certificate-requests"
+        )
     return owner, name
 
 
@@ -80,7 +86,7 @@ _FORGE_OPTION = typer.Option(
     "github",
     "--forge",
     callback=_validate_forge,
-    help="Source forge: 'github' (default) or 'forgejo' (Codeberg/Gitea)",
+    help="Source forge: 'github' (default), 'forgejo' (Codeberg/Gitea), or 'gitlab'",
 )
 
 

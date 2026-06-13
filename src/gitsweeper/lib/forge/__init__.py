@@ -1,9 +1,9 @@
 """Forge access: the provider seam analysis capabilities acquire data through.
 
-Providers (GitHub and Forgejo/Gitea/Codeberg today) map their native JSON onto
-the normalized model in :mod:`gitsweeper.lib.forge.base` — frozen dataclasses
-with uniform merge semantics, UTC-``Z`` timestamps, and a retained raw payload —
-so the analysis capabilities never name a concrete forge.
+Providers (GitHub, Forgejo/Gitea/Codeberg, and GitLab today) map their native
+JSON onto the normalized model in :mod:`gitsweeper.lib.forge.base` — frozen
+dataclasses with uniform merge semantics, UTC-``Z`` timestamps, and a retained
+raw payload — so the analysis capabilities never name a concrete forge.
 """
 
 from gitsweeper.lib.forge.base import (
@@ -16,6 +16,7 @@ from gitsweeper.lib.forge.base import (
 )
 from gitsweeper.lib.forge.forgejo import ForgejoClient, ForgejoError
 from gitsweeper.lib.forge.github import GitHubClient, GitHubError
+from gitsweeper.lib.forge.gitlab import GitLabClient, GitLabError
 from gitsweeper.lib.forge.selection import (
     SUPPORTED_FORGES,
     UnsupportedForgeError,
@@ -34,6 +35,8 @@ __all__ = [
     "ForgejoError",
     "GitHubClient",
     "GitHubError",
+    "GitLabClient",
+    "GitLabError",
     "UnsupportedForgeError",
     "get_forge_provider",
 ]
