@@ -67,24 +67,33 @@ to some, but forces an import dependency from every provider onto the
 base and tempts shared implementation in the base class, which is
 exactly the coupling the seam exists to avoid.
 
-### Normalized model as frozen dataclasses, raw payload retained
+### Normalized model — deferred to the first non-GitHub provider
 
-**Choice:** A small set of frozen dataclasses — `ForgePullRequest`,
-`ForgeComment`, `ForgeCommit`, `ForgeRepo` — with the fields the
-analyses already use (`number`, `state`, `created_at`, `merged_at`,
-`closed_at`, `author`, `raw`). Each carries the provider's raw dict
-in `raw`.
+**Choice:** The `ForgeProvider` protocol returns GitHub's native JSON
+dict shape (an `Iterator[dict]`), which the capabilities already
+consume. The normalized cross-forge model — frozen dataclasses
+(`ForgePullRequest`, `ForgeComment`, `ForgeCommit`, `ForgeRepo`) with
+the fields the analyses use (`number`, `state`, `created_at`,
+`merged_at`, `closed_at`, `author`, `raw`) and uniform merge
+semantics — is **not** built in this change. It lands with the
+`forge-provider-forgejo` change.
 
-**Rationale:** The storage layer already persists a `raw_payload`
-column; keeping the raw response on the normalized record means the
-mapping is non-lossy and auditable, and the SQLite schema is
-untouched. Frozen dataclasses are the boring, typed, dependency-free
-choice.
+**Rationale:** A normalization layer exists to reconcile *differing*
+forge shapes. With one forge there is nothing to reconcile, so
+building the dataclasses now would be speculative — exactly the
+"no abstraction without a second concrete use case" trap. Returning
+the existing dict shape also keeps this change behaviour-preserving:
+no capability's field access changes. When Forgejo arrives, its
+genuinely different shape forces the model to be designed against two
+realities, and the storage layer's existing `raw_payload` column is
+ready to hold the retained raw response.
 
-**Alternatives considered:** `pydantic` models — richer validation,
-but a new runtime dependency for data we control and already trust;
-`polars` rows — premature, analyses still consume Python objects at
-this layer.
+**Alternatives considered:** Build the dataclasses now and adapt
+GitHub to them — speculative, and a wide behaviour-touching diff
+across every capability's field access for zero present benefit.
+When the model does land: frozen dataclasses over `pydantic`
+(no new runtime dependency for data we already trust) or `polars`
+rows (premature at this layer).
 
 ### Provider selection: explicit override, else host, else GitHub
 

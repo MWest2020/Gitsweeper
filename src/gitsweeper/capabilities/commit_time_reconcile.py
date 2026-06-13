@@ -32,7 +32,7 @@ from billbird_client import (
 )
 
 from gitsweeper.lib.commit_time import parse_issue_refs, parse_time_footer
-from gitsweeper.lib.github_client import GitHubClient
+from gitsweeper.lib.forge import ForgeProvider, get_forge_provider
 from gitsweeper.lib.rendering import AnalysisResult
 
 MIN_TOLERANCE_MINUTES = 15
@@ -138,7 +138,7 @@ def _sort_rows(rows: list[list[Any]]) -> list[list[Any]]:
 
 def reconcile(
     *,
-    github: GitHubClient,
+    github: ForgeProvider,
     billbird: BillbirdClient,
     owner: str,
     name: str,
@@ -236,7 +236,7 @@ def reconcile_from_env(
     are missing. Lets ``BillbirdHTTPError`` propagate so callers see
     auth/server problems verbatim.
     """
-    with GitHubClient.from_env() as github, BillbirdClient.from_env() as billbird:
+    with get_forge_provider() as github, BillbirdClient.from_env() as billbird:
         return reconcile(
             github=github,
             billbird=billbird,

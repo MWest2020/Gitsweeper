@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from gitsweeper.lib.github_client import GitHubClient, _parse_next_link
+from gitsweeper.lib.forge.github import GitHubClient, _parse_next_link
 
 
 def _client(transport: httpx.MockTransport, *, token: str | None = None, sleeps: list[float] | None = None, now: float = 0.0):
@@ -140,7 +140,7 @@ def test_4xx_other_than_rate_limit_raises() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"message": "not found"})
 
-    from gitsweeper.lib.github_client import GitHubError
+    from gitsweeper.lib.forge.github import GitHubError
 
     client, _ = _client(httpx.MockTransport(handler), token="t")
     with pytest.raises(GitHubError):

@@ -24,7 +24,7 @@ from gitsweeper.capabilities import (
 )
 from gitsweeper.capabilities import process_report as _process_report
 from gitsweeper.lib import storage
-from gitsweeper.lib.github_client import GitHubClient
+from gitsweeper.lib.forge import SUPPORTED_FORGES, get_forge_provider
 from gitsweeper.lib.rendering import get_renderer
 
 app = typer.Typer(
@@ -67,11 +67,26 @@ def _validate_since(value: str | None) -> str | None:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _validate_forge(value: str) -> str:
+    if value.lower() not in SUPPORTED_FORGES:
+        available = ", ".join(SUPPORTED_FORGES)
+        raise typer.BadParameter(
+            f"unsupported forge {value!r}; available providers: {available}"
+        )
+    return value.lower()
+
+
+_FORGE_OPTION = typer.Option(
+    "github", "--forge", callback=_validate_forge, help="Source forge (only 'github' today)"
+)
+
+
 @app.command()
 def fetch(
     repos: list[str] = typer.Argument(
         None, help="One or more GitHub owner/repo arguments"
     ),
+    forge: str = _FORGE_OPTION,
     org: str | None = typer.Option(
         None, "--org", help="Fetch every repository in this GitHub organisation"
     ),
@@ -92,7 +107,7 @@ def fetch(
     conn = _open_db(db)
     targets: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
-    with GitHubClient.from_env() as client:
+    with get_forge_provider(forge=forge) as client:
         if org:
             try:
                 for body in client.list_org_repos(org):
@@ -157,6 +172,7 @@ def throughput(
 @app.command(name="first-response")
 def first_response(
     repo: str = typer.Argument(..., help="GitHub owner/repo"),
+    forge: str = _FORGE_OPTION,
     since: str | None = typer.Option(
         None, "--since", help="Lower bound on merge date (YYYY-MM-DD UTC)"
     ),
@@ -172,7 +188,7 @@ def first_response(
     db = db_path or _default_db_path()
     conn = _open_db(db)
     repo_id = storage.get_or_create_repository(conn, owner, name)
-    with GitHubClient.from_env() as client:
+    with get_forge_provider(forge=forge) as client:
         result = pr_throughput.compute_first_response(
             conn, client, repo_id, owner, name, since=since_iso, author=author
         )
@@ -206,6 +222,7 @@ def patterns(
 @app.command()
 def classify(
     repo: str = typer.Argument(..., help="GitHub owner/repo"),
+    forge: str = _FORGE_OPTION,
     author: str | None = typer.Option(
         None, "--author", help="Restrict reporting to PRs by this GitHub login"
     ),
@@ -221,7 +238,7 @@ def classify(
     db = db_path or _default_db_path()
     conn = _open_db(db)
     repo_id = storage.get_or_create_repository(conn, owner, name)
-    with GitHubClient.from_env() as client:
+    with get_forge_provider(forge=forge) as client:
         summary = pr_classification.enrich_close_actors(
             conn, client, repo_id, owner, name
         )
@@ -380,6 +397,7 @@ def regressions(
 @app.command()
 def report(
     repo: str = typer.Argument(..., help="GitHub owner/repo"),
+    forge: str = _FORGE_OPTION,
     author: str | None = typer.Option(
         None, "--author", help="Restrict every section to PRs by this GitHub login"
     ),
@@ -400,7 +418,7 @@ def report(
     db = db_path or _default_db_path()
     conn = _open_db(db)
     try:
-        with GitHubClient.from_env() as client:
+        with get_forge_provider(forge=forge) as client:
             markdown = _process_report.generate_report(
                 conn, client, owner, name,
                 author=author, since=since_iso, refresh=refresh,

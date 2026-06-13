@@ -42,6 +42,14 @@ uv run gitsweeper report nextcloud/app-certificate-requests \
     --out docs/examples/nextcloud-csr-mwest2020-$(date -u +%Y-%m-%d).md
 ```
 
+### Forges
+
+Gitsweeper acquires data through a forge-provider seam (`lib/forge`).
+**GitHub is the only provider today** and the default, so a bare
+`owner/repo` works exactly as it always has. A `--forge` option exists
+(only `github` is accepted for now) ahead of the Forgejo/Codeberg and
+GitLab providers, which land as follow-on changes.
+
 ### Where things live on disk
 
 | Path | Status | Contents |

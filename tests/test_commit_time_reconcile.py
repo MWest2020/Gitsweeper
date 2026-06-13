@@ -20,7 +20,7 @@ from gitsweeper.capabilities.commit_time_reconcile import (
     classify,
     reconcile,
 )
-from gitsweeper.lib.github_client import GitHubClient
+from gitsweeper.lib.forge import GitHubClient
 
 # --- Classifier ----------------------------------------------------
 

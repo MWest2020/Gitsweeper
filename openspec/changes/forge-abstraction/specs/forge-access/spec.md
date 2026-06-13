@@ -6,8 +6,11 @@ The system SHALL expose a `ForgeProvider` interface that analysis
 capabilities use to acquire repository data — pull/merge requests,
 their comments, commits, and the repositories owned by an
 organisation or group — without depending on which concrete forge
-(GitHub, Forgejo, GitLab) backs it. Each operation SHALL return the
-normalized data model, not a forge's raw response shape.
+(GitHub, Forgejo, GitLab) backs it. In v1 the provider returns its
+forge's native record shape; a normalized cross-forge model is
+introduced with the first non-GitHub provider (its requirement lands
+in that change, since a normalization layer cannot be designed or
+validated against a single forge).
 
 #### Scenario: A capability acquires PRs without naming a forge
 
@@ -15,7 +18,7 @@ normalized data model, not a forge's raw response shape.
   repository
 - **WHEN** it obtains a provider from `forge-access` and calls the
   list-pull-requests operation
-- **THEN** it receives normalized pull-request records
+- **THEN** it receives pull-request records to analyse
 - **AND** the capability contains no reference to a specific forge's
   API, headers, or pagination scheme
 
@@ -119,31 +122,6 @@ limit is never blown through.
 - **WHEN** the provider observes that response
 - **THEN** it sleeps for the `Retry-After` duration before retrying
   the same idempotent request
-
-### Requirement: Normalize each forge's model to a common shape
-
-The system SHALL map each forge's pull/merge request, commit, and
-repository representations onto a single normalized model so that
-analysis capabilities reason about merge state, timestamps, author,
-and identifiers uniformly, regardless of the source forge's
-vocabulary.
-
-#### Scenario: Merge semantics are uniform across forges
-
-- **GIVEN** a change request that the forge considers merged
-  (GitHub's `merged_at`, or another forge's equivalent merge marker)
-- **WHEN** it is normalized
-- **THEN** the normalized record carries a non-null `merged_at`
-  timestamp
-- **AND** a closed-without-merge change request carries a null
-  `merged_at` and a non-null `closed_at`, identically across forges
-
-#### Scenario: Raw payload is preserved for audit
-
-- **WHEN** any record is normalized
-- **THEN** the provider's original raw response for that record is
-  retained alongside the normalized fields, so a re-analysis or audit
-  can inspect what the forge actually returned
 
 ### Requirement: Fetch all pull requests for a repository
 

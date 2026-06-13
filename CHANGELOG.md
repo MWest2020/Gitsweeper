@@ -8,6 +8,18 @@ once there is working code worth tagging.
 
 ## [Unreleased]
 
+### Added
+- `2026-06-13` — **Forge-provider seam** (`forge-abstraction` change). Data
+  acquisition now goes through `lib/forge` and a `ForgeProvider` interface
+  instead of a hardcoded GitHub client. The GitHub client was *moved*
+  (`lib/github_client.py` → `lib/forge/github.py`), not rewritten, and stays
+  the default: a bare `owner/repo` resolves to GitHub exactly as before, so
+  no existing command changes. A `--forge` option (only `github` accepted
+  today) plus host detection select the provider. Forgejo/Codeberg and
+  GitLab providers — and a normalized cross-forge model — are deliberately
+  deferred to follow-on changes (you cannot validate a normalization layer
+  against a single forge). Not a breaking change.
+
 ### Changed
 - `2026-05-22` — `billbird-client` is now resolved from PyPI (v0.1.0+).
   The local-path override (`tool.uv.sources.billbird-client = { path = "../billbird-client", editable = true }`)

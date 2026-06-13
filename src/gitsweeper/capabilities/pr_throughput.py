@@ -24,7 +24,7 @@ from datetime import UTC, date, datetime
 import polars as pl
 
 from gitsweeper.lib import storage
-from gitsweeper.lib.github_client import GitHubClient
+from gitsweeper.lib.forge import ForgeProvider
 from gitsweeper.lib.rendering import AnalysisResult
 
 
@@ -50,7 +50,7 @@ def parse_since(value: str | None) -> str | None:
 
 def fetch_and_persist(
     conn: sqlite3.Connection,
-    client: GitHubClient,
+    client: ForgeProvider,
     owner: str,
     name: str,
 ) -> FetchSummary:
@@ -116,7 +116,7 @@ def compute_throughput(
 
 def compute_first_response(
     conn: sqlite3.Connection,
-    client: GitHubClient,
+    client: ForgeProvider,
     repo_id: int,
     owner: str,
     name: str,

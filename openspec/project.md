@@ -6,7 +6,7 @@ issue and pull-request history.
 
 **Scale of ambition:**
 
-- v1: GitHub-only, single user, CLI.
+- v1: one forge (GitHub) behind a provider seam, single user, CLI.
 - horizon: more data sources, more analyses, optional renderers to
   PDF / markdown / dashboards.
 
@@ -64,7 +64,7 @@ gitsweeper/
     capabilities/
       pr_throughput/    # one package per capability
     lib/
-      github_client/    # shared: REST, pagination, rate limits
+      forge/            # shared: provider seam (GitHub today; Forgejo/GitLab follow-on)
       storage/          # shared: sqlite + portable SQL
       rendering/        # shared: renderer interface + impls
   tests/
@@ -196,7 +196,9 @@ Explicit non-goals, listed so they do not creep in:
 - Renderers beyond CLI table and JSON. No PDF, markdown, dashboards.
 - Multi-repo aggregation in a single run.
 - Incremental cache updates. Full refresh is good enough at this scale.
-- Non-GitHub data sources (GitLab, Forgejo, NPM registry, etc.).
+- Concrete non-GitHub providers. The forge-provider seam exists (see the
+  `forge-access` capability), but Forgejo/Codeberg and GitLab providers —
+  and the normalized cross-forge model — are follow-on changes.
 - Multi-tenancy, auth, user management.
 - Scheduled runs, alerts, notifications.
 - Web UI.

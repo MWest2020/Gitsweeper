@@ -334,10 +334,10 @@ def _open_local_db():
 
 
 def _open_github():
-    """Build a GitHubClient from env. Used by reconcile."""
-    from gitsweeper.lib.github_client import GitHubClient
+    """Build a forge provider from env. Used by reconcile."""
+    from gitsweeper.lib.forge import get_forge_provider
 
-    return GitHubClient.from_env()
+    return get_forge_provider()
 
 
 def _has_pr_cache(conn, repo_id: int) -> bool:
