@@ -38,7 +38,7 @@ The system SHALL determine which provider serves a given repository
 reference by an explicit `--forge` selection when present, otherwise
 by detecting the forge from the host of a fully-qualified reference,
 otherwise defaulting to GitHub for a bare `owner/repo`. Registered
-providers are GitHub and Forgejo.
+providers are GitHub, Forgejo, and GitLab.
 
 #### Scenario: Bare owner/repo defaults to GitHub
 
@@ -50,7 +50,8 @@ providers are GitHub and Forgejo.
 
 #### Scenario: --forge overrides detection
 
-- **GIVEN** the user passes `--forge github` or `--forge forgejo`
+- **GIVEN** the user passes `--forge github`, `--forge forgejo`, or
+  `--forge gitlab`
 - **WHEN** the provider is resolved
 - **THEN** the named provider is selected regardless of any host in
   the reference
@@ -71,10 +72,26 @@ providers are GitHub and Forgejo.
 - **THEN** requests target that base URL's `/api/v1` rather than
   Codeberg's
 
+#### Scenario: A GitLab host is detected as GitLab
+
+- **GIVEN** the user passes a fully-qualified reference whose host is
+  `gitlab.com` (or a configured self-hosted GitLab host) and no
+  `--forge`
+- **WHEN** the provider is resolved
+- **THEN** the GitLab provider is selected
+
+#### Scenario: Self-hosted GitLab base URL is honoured
+
+- **GIVEN** `--forge gitlab` and a self-hosted base URL configured via
+  the documented environment variable
+- **WHEN** the GitLab provider issues requests
+- **THEN** requests target that base URL's `/api/v4` rather than
+  gitlab.com's
+
 #### Scenario: An unsupported forge is rejected, not guessed
 
-- **GIVEN** the user passes `--forge gitlab` (no registered provider)
-  or a reference whose host maps to no registered provider
+- **GIVEN** the user passes `--forge bitbucket` (no registered
+  provider) or a reference whose host maps to no registered provider
 - **WHEN** the provider is resolved
 - **THEN** the system exits with a non-zero status and an error that
   names the requested forge and lists the providers that are
@@ -102,6 +119,13 @@ budget is small.
 - **WHEN** the Forgejo provider issues requests
 - **THEN** every request carries the token in the Gitea-style
   `Authorization: token <value>` header
+
+#### Scenario: Authenticated GitLab fetch via its token
+
+- **GIVEN** the `GITLAB_TOKEN` environment variable is set
+- **WHEN** the GitLab provider issues requests
+- **THEN** every request carries the token in the `PRIVATE-TOKEN`
+  header
 
 #### Scenario: Unauthenticated degraded mode
 
@@ -257,6 +281,17 @@ original raw response.
 - **AND** a closed-without-merge change request carries a null
   `merged_at` and a non-null `closed_at`, identically across forges
 
+#### Scenario: GitLab's distinct vocabulary is normalized away
+
+- **GIVEN** a GitLab merge request with a per-project `iid`, a `state`
+  of `opened`, `closed`, or `merged`, and an `author.username`
+- **WHEN** it is normalized
+- **THEN** `number` is the `iid` (not the global `id`)
+- **AND** `state` is `open` for `opened` and `closed` for both
+  `closed` and `merged`, with `merged_at` non-null only when the MR
+  merged
+- **AND** `author` is the `author.username`
+
 #### Scenario: Raw payload is preserved for audit
 
 - **WHEN** any record is normalized by any provider
@@ -266,7 +301,7 @@ original raw response.
 
 #### Scenario: A new provider proves conformance via the contract suite
 
-- **GIVEN** a provider implementation (GitHub or Forgejo today)
+- **GIVEN** a provider implementation (GitHub, Forgejo, or GitLab)
 - **WHEN** the shared provider contract-test suite runs against it
 - **THEN** the suite asserts the merge-semantics, closed-without-merge,
   raw-retention, and pagination-to-completion invariants hold
