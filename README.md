@@ -97,6 +97,7 @@ taken. Keep them locally for sharing; do not commit them.
 | `first-response <repo> [--since] [--author] [--json]` | First-non-author-comment percentiles; lazily fetches comments for any uncached PR. | ~1 per uncached PR. |
 | `classify <repo> [--author] [--json]` | Self-pulled vs maintainer-closed for closed-without-merge PRs; uses the issue-events endpoint to fill the data the pulls endpoint omits. | ~1 per uncached closed-unmerged PR. |
 | `patterns <repo> [--since] [--author] [--json]` | Day-of-week and hour-of-day distributions for submissions and responses. | 0 (cache only). |
+| `dora <repo> [--since] [--period week\|month] [--json]` | The four DORA metrics (team-level, proxy-based) over the cache. No `--author`. | 0 (cache only). |
 | `report <repo> [--author] [--since] [--refresh] [--out PATH]` | Compose every section above into a single markdown document. `--refresh` runs fetch + first-response + classify before composing. | Sum of the above when `--refresh`; 0 otherwise. |
 
 ## Manager-MCP
@@ -128,6 +129,30 @@ uv run gitsweeper mcp
 - [`report-rendering`](./openspec/specs/report-rendering/spec.md)
   — pluggable renderer interface; CLI table, JSON, and markdown
   renderers.
+- [`dora-metrics`](./openspec/specs/dora-metrics/spec.md)
+  — the four DORA metrics computed team-level from the PR cache, with
+  documented proxies and DORA performance bands.
+
+### DORA — team-level, proxy-based
+
+`gitsweeper dora <repo>` computes the four DORA metrics from the cached
+pull requests only (no forge calls, no `--author` — DORA measures a
+team's delivery system, not individuals). Because the cache holds no
+releases, per-PR commits, or issue history, v1 uses documented proxies:
+
+- **deployment frequency** — merged PRs per `--period` bucket
+  (`week`/`month`); a merge is treated as a deploy.
+- **lead time for changes** — median/p75/p90 of `created_at` →
+  `merged_at` (PR cycle time as lead time).
+- **change failure rate** — corrective merged PRs ÷ all merged PRs,
+  where "corrective" is a deterministic title heuristic (leading
+  `revert`/`hotfix`/`rollback`, or a conventional-commit `fix:` /
+  `fix(scope):` prefix).
+- **time to restore** — median `created_at` → `merged_at` over the
+  corrective merged PRs.
+
+Each metric is annotated with its Elite/High/Medium/Low DORA band and
+the sample count it came from.
 
 ## Development
 

@@ -16,6 +16,7 @@ import typer
 
 from gitsweeper.capabilities import dashboard as _dashboard
 from gitsweeper.capabilities import (
+    dora_metrics,
     effort_allocation,
     kpi_timeseries,
     pr_classification,
@@ -224,6 +225,40 @@ def patterns(
     repo_id = storage.get_or_create_repository(conn, owner, name)
     result = pr_throughput.compute_temporal_patterns(
         conn, repo_id, owner, name, author=author, since=since_iso
+    )
+    _renderer_for(json_out).render(result)
+
+
+@app.command()
+def dora(
+    repo: str = typer.Argument(..., help="owner/repo"),
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on merge date (YYYY-MM-DD UTC)"
+    ),
+    period: str = typer.Option(
+        "month", "--period", help="Deployment-frequency bucket: week or month (default)"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Compute the four DORA metrics (team-level) from the local cache.
+
+    Deployment frequency, lead time for changes, change failure rate, and
+    time to restore service — derived from the cached merged PRs with
+    documented proxies. Reads cache only; no forge API calls and no
+    per-author filter (DORA is team-level by design).
+    """
+    if period not in ("week", "month"):
+        raise typer.BadParameter(
+            f"unsupported --period {period!r}; supported: week, month"
+        )
+    owner, name = _split_repo(repo)
+    since_iso = _validate_since(since)
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    repo_id = storage.get_or_create_repository(conn, owner, name)
+    result = dora_metrics.compute_dora(
+        conn, repo_id, owner, name, period=period, since=since_iso
     )
     _renderer_for(json_out).render(result)
 

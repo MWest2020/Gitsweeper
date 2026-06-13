@@ -9,6 +9,26 @@ once there is working code worth tagging.
 ## [Unreleased]
 
 ### Added
+- `2026-06-13` — **DORA metrics** (`dora-metrics` change). A new
+  `gitsweeper dora <repo>` command computes the four DORA metrics —
+  deployment frequency, lead time for changes, change failure rate, and
+  time to restore service — team-level from the local PR cache, with zero
+  forge API calls and no `--author` (DORA measures the delivery system,
+  not individuals). Because the cache holds no releases, per-PR commits,
+  or issue history, v1 uses documented proxies: deployment frequency =
+  merged PRs per `--period` bucket (`week`/`month`, default `month`),
+  lead time = median/p75/p90 of `created_at` → `merged_at`, change
+  failure rate = corrective merged PRs ÷ all merged PRs, and time to
+  restore = median cycle time over corrective PRs. A merged PR is
+  "corrective" when its title (read from the uniform `raw_payload`
+  `title`, so it works identically across GitHub/Forgejo/GitLab) starts
+  with `revert`/`hotfix`/`rollback` or matches a conventional-commit
+  `fix:` / `fix(scope):` prefix — one documented `CORRECTIVE_KEYWORDS`
+  constant plus regex. Each metric carries its Elite/High/Medium/Low DORA
+  band (from documented threshold constants) and the sample count it was
+  computed from. An empty population (zero merged PRs in window) is
+  reported explicitly — no NaN, no divide-by-zero. Renders through the
+  existing table/JSON renderers. Not a breaking CLI change.
 - `2026-06-13` — **GitLab provider** (`forge-provider-gitlab` change). A third
   `ForgeProvider` against the GitLab REST API v4 (`/api/v4`) reads merge
   requests, notes, merge-request state events (for close actors), group
