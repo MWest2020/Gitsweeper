@@ -17,6 +17,15 @@ from typing import Any
 
 import httpx
 
+from gitsweeper.lib.forge.base import (
+    ForgeComment,
+    ForgeCommit,
+    ForgeIssueEvent,
+    ForgePullRequest,
+    ForgeRepo,
+    normalize_timestamp,
+)
+
 GITHUB_API = "https://api.github.com"
 DEFAULT_PER_PAGE = 100
 DEFAULT_TIMEOUT = 30.0
@@ -36,6 +45,57 @@ def _parse_next_link(header_value: str) -> str | None:
 
 class GitHubError(RuntimeError):
     pass
+
+
+def _to_pull_request(raw: dict[str, Any]) -> ForgePullRequest:
+    merged_at = normalize_timestamp(raw.get("merged_at"))
+    return ForgePullRequest(
+        number=int(raw["number"]),
+        state=raw.get("state", "open"),
+        created_at=normalize_timestamp(raw.get("created_at")) or "",
+        merged_at=merged_at,
+        closed_at=normalize_timestamp(raw.get("closed_at")),
+        author=(raw.get("user") or {}).get("login") or "",
+        raw=raw,
+    )
+
+
+def _to_comment(raw: dict[str, Any]) -> ForgeComment:
+    return ForgeComment(
+        created_at=normalize_timestamp(raw.get("created_at")) or "",
+        author=(raw.get("user") or {}).get("login") or "",
+        body=raw.get("body") or "",
+        raw=raw,
+    )
+
+
+def _to_issue_event(raw: dict[str, Any]) -> ForgeIssueEvent:
+    return ForgeIssueEvent(
+        event=raw.get("event") or "",
+        actor=(raw.get("actor") or {}).get("login"),
+        raw=raw,
+    )
+
+
+def _to_repo(raw: dict[str, Any], *, default_owner: str) -> ForgeRepo:
+    return ForgeRepo(
+        owner=(raw.get("owner") or {}).get("login") or default_owner,
+        name=raw["name"],
+        raw=raw,
+    )
+
+
+def _to_commit(raw: dict[str, Any]) -> ForgeCommit:
+    commit = raw.get("commit") or {}
+    commit_author = commit.get("author") or {}
+    return ForgeCommit(
+        sha=raw.get("sha") or "",
+        message=commit.get("message") or "",
+        author=(raw.get("author") or {}).get("login"),
+        author_name=commit_author.get("name"),
+        author_date=normalize_timestamp(commit_author.get("date")),
+        raw=raw,
+    )
 
 
 class GitHubClient:
@@ -83,7 +143,7 @@ class GitHubClient:
 
     def list_pull_requests(
         self, owner: str, repo: str, state: str = "all"
-    ) -> Iterator[dict[str, Any]]:
+    ) -> Iterator[ForgePullRequest]:
         path = f"/repos/{owner}/{repo}/pulls"
         params: dict[str, Any] | None = {
             "state": state,
@@ -91,27 +151,31 @@ class GitHubClient:
             "sort": "created",
             "direction": "asc",
         }
-        yield from self._paginate(self._base_url + path, params)
+        for raw in self._paginate(self._base_url + path, params):
+            yield _to_pull_request(raw)
 
     def list_issue_comments(
         self, owner: str, repo: str, issue_number: int
-    ) -> Iterator[dict[str, Any]]:
+    ) -> Iterator[ForgeComment]:
         path = f"/repos/{owner}/{repo}/issues/{issue_number}/comments"
         params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
-        yield from self._paginate(self._base_url + path, params)
+        for raw in self._paginate(self._base_url + path, params):
+            yield _to_comment(raw)
 
     def list_issue_events(
         self, owner: str, repo: str, issue_number: int
-    ) -> Iterator[dict[str, Any]]:
+    ) -> Iterator[ForgeIssueEvent]:
         path = f"/repos/{owner}/{repo}/issues/{issue_number}/events"
         params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
-        yield from self._paginate(self._base_url + path, params)
+        for raw in self._paginate(self._base_url + path, params):
+            yield _to_issue_event(raw)
 
-    def list_org_repos(self, org: str) -> Iterator[dict[str, Any]]:
+    def list_org_repos(self, org: str) -> Iterator[ForgeRepo]:
         """List every repository owned by an organisation. Paginated."""
         path = f"/orgs/{org}/repos"
         params: dict[str, Any] | None = {"per_page": DEFAULT_PER_PAGE}
-        yield from self._paginate(self._base_url + path, params)
+        for raw in self._paginate(self._base_url + path, params):
+            yield _to_repo(raw, default_owner=org)
 
     def list_commits(
         self,
@@ -120,7 +184,7 @@ class GitHubClient:
         *,
         since: str | None = None,
         sha: str | None = None,
-    ) -> Iterator[dict[str, Any]]:
+    ) -> Iterator[ForgeCommit]:
         """List commits on a repo branch. Paginated.
 
         ``since`` is an ISO 8601 timestamp passed verbatim to GitHub.
@@ -133,7 +197,8 @@ class GitHubClient:
             params["since"] = since
         if sha:
             params["sha"] = sha
-        yield from self._paginate(self._base_url + path, params)
+        for raw in self._paginate(self._base_url + path, params):
+            yield _to_commit(raw)
 
     def _paginate(
         self, url: str, params: dict[str, Any] | None

@@ -8,6 +8,7 @@ import pytest
 
 from gitsweeper.capabilities import pr_throughput
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import ForgeComment, ForgePullRequest
 
 
 class FakeClient:
@@ -15,19 +16,23 @@ class FakeClient:
 
     def __init__(
         self,
-        prs: Iterable[dict] = (),
-        comments_by_pr: dict[int, list[dict]] | None = None,
+        prs: Iterable[ForgePullRequest] = (),
+        comments_by_pr: dict[int, list[ForgeComment]] | None = None,
     ) -> None:
         self._prs = list(prs)
         self._comments = comments_by_pr or {}
         self.pr_calls = 0
         self.comment_calls: list[int] = []
 
-    def list_pull_requests(self, owner: str, repo: str, state: str = "all") -> Iterator[dict]:
+    def list_pull_requests(
+        self, owner: str, repo: str, state: str = "all"
+    ) -> Iterator[ForgePullRequest]:
         self.pr_calls += 1
         yield from self._prs
 
-    def list_issue_comments(self, owner: str, repo: str, number: int) -> Iterator[dict]:
+    def list_issue_comments(
+        self, owner: str, repo: str, number: int
+    ) -> Iterator[ForgeComment]:
         self.comment_calls.append(number)
         yield from self._comments.get(number, [])
 
@@ -39,8 +44,10 @@ def conn(tmp_path: Path) -> sqlite3.Connection:
     return c
 
 
-def _pr(number: int, *, created: str, merged: str | None = None, author: str = "alice") -> dict:
-    return {
+def _pr(
+    number: int, *, created: str, merged: str | None = None, author: str = "alice"
+) -> ForgePullRequest:
+    raw = {
         "number": number,
         "state": "closed" if merged else "open",
         "created_at": created,
@@ -49,10 +56,21 @@ def _pr(number: int, *, created: str, merged: str | None = None, author: str = "
         "user": {"login": author},
         "title": f"PR #{number}",
     }
+    return ForgePullRequest(
+        number=number,
+        state="closed" if merged else "open",
+        created_at=created,
+        merged_at=merged,
+        closed_at=merged,
+        author=author,
+        raw=raw,
+    )
 
 
-def _comment(at: str, who: str) -> dict:
-    return {"created_at": at, "user": {"login": who}, "body": "..."}
+def _comment(at: str, who: str) -> ForgeComment:
+    return ForgeComment(
+        created_at=at, author=who, body="...", raw={"created_at": at, "user": {"login": who}}
+    )
 
 
 # ---- parse_since ----------------------------------------------------------

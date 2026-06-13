@@ -11,13 +11,16 @@ from typer.testing import CliRunner
 from gitsweeper import cli
 from gitsweeper.capabilities import kpi_timeseries, pr_throughput
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import ForgePullRequest
 
 
 class FakeFetchClient:
-    def __init__(self, prs: list[dict]) -> None:
+    def __init__(self, prs: list[ForgePullRequest]) -> None:
         self._prs = prs
 
-    def list_pull_requests(self, owner: str, repo: str, state: str = "all") -> Iterator[dict]:
+    def list_pull_requests(
+        self, owner: str, repo: str, state: str = "all"
+    ) -> Iterator[ForgePullRequest]:
         yield from self._prs
 
 
@@ -27,15 +30,16 @@ def _pr(
     created: str,
     merged: str | None = None,
     author: str = "alice",
-) -> dict:
-    return {
-        "number": number,
-        "state": "closed" if merged else "open",
-        "created_at": created,
-        "merged_at": merged,
-        "closed_at": merged,
-        "user": {"login": author},
-    }
+) -> ForgePullRequest:
+    return ForgePullRequest(
+        number=number,
+        state="closed" if merged else "open",
+        created_at=created,
+        merged_at=merged,
+        closed_at=merged,
+        author=author,
+        raw={"number": number, "user": {"login": author}},
+    )
 
 
 @pytest.fixture

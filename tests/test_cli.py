@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from gitsweeper import cli
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import ForgePullRequest
 
 
 @pytest.fixture
@@ -23,22 +24,24 @@ def _seed_cache(db: Path) -> None:
         conn,
         repo_id,
         [
-            {
-                "number": 1,
-                "state": "closed",
-                "created_at": "2025-01-01T00:00:00Z",
-                "merged_at": "2025-01-02T00:00:00Z",
-                "closed_at": "2025-01-02T00:00:00Z",
-                "user": {"login": "alice"},
-            },
-            {
-                "number": 2,
-                "state": "closed",
-                "created_at": "2025-01-01T00:00:00Z",
-                "merged_at": "2025-01-08T00:00:00Z",
-                "closed_at": "2025-01-08T00:00:00Z",
-                "user": {"login": "alice"},
-            },
+            ForgePullRequest(
+                number=1,
+                state="closed",
+                created_at="2025-01-01T00:00:00Z",
+                merged_at="2025-01-02T00:00:00Z",
+                closed_at="2025-01-02T00:00:00Z",
+                author="alice",
+                raw={"number": 1, "user": {"login": "alice"}},
+            ),
+            ForgePullRequest(
+                number=2,
+                state="closed",
+                created_at="2025-01-01T00:00:00Z",
+                merged_at="2025-01-08T00:00:00Z",
+                closed_at="2025-01-08T00:00:00Z",
+                author="alice",
+                raw={"number": 2, "user": {"login": "alice"}},
+            ),
         ],
     )
     conn.close()

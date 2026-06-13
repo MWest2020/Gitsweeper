@@ -9,6 +9,22 @@ once there is working code worth tagging.
 ## [Unreleased]
 
 ### Added
+- `2026-06-13` — **Forgejo/Codeberg provider** (`forge-provider-forgejo`
+  change). A second `ForgeProvider` against the Gitea-compatible v1 API
+  (`/api/v1`) reads pull requests, comments, the issue *timeline* (for close
+  actors), org repos, and commits from Forgejo/Gitea instances — Codeberg by
+  default, self-hosted via `GITSWEEPER_FORGEJO_URL`. Select it with
+  `--forge forgejo`, by a `codeberg.org` URL, or by a configured self-hosted
+  host; a bare `owner/repo` still resolves to GitHub. Auth is the Gitea-style
+  `FORGEJO_TOKEN` (`Authorization: token …`); anonymous reads work where the
+  instance permits. This change also lands the two pieces `forge-abstraction`
+  deferred to the first non-GitHub provider: a **normalized cross-forge model**
+  (frozen `Forge*` dataclasses in `lib/forge/base.py`, with UTC-`Z` timestamp
+  normalization, uniform merge semantics, and a retained `raw` payload) that
+  both providers and all consumers now use instead of raw provider dicts, and a
+  **parameterised provider contract suite** (`tests/test_forge_contract.py`)
+  both providers pass. The model migration is an internal record-type change,
+  not a breaking CLI change — every existing command behaves identically.
 - `2026-06-13` — **Forge-provider seam** (`forge-abstraction` change). Data
   acquisition now goes through `lib/forge` and a `ForgeProvider` interface
   instead of a hardcoded GitHub client. The GitHub client was *moved*

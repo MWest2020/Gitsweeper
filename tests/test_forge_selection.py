@@ -6,6 +6,7 @@ import pytest
 
 from gitsweeper.lib.forge import (
     SUPPORTED_FORGES,
+    ForgejoClient,
     GitHubClient,
     UnsupportedForgeError,
     get_forge_provider,
@@ -32,6 +33,35 @@ def test_explicit_forge_github_overrides() -> None:
 
 def test_github_host_url_detected() -> None:
     provider = get_forge_provider("https://github.com/ConductionNL/openregister")
+    assert isinstance(provider, GitHubClient)
+    provider.close()
+
+
+def test_explicit_forge_forgejo_overrides() -> None:
+    provider = get_forge_provider("o/r", forge="forgejo")
+    assert isinstance(provider, ForgejoClient)
+    provider.close()
+
+
+def test_codeberg_host_detected_as_forgejo() -> None:
+    provider = get_forge_provider("https://codeberg.org/forgejo/forgejo")
+    assert isinstance(provider, ForgejoClient)
+    provider.close()
+
+
+def test_self_hosted_forgejo_host_detected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITSWEEPER_FORGEJO_URL", "https://git.example.org")
+    provider = get_forge_provider("https://git.example.org/team/project")
+    assert isinstance(provider, ForgejoClient)
+    provider.close()
+
+
+def test_bare_owner_repo_still_github_even_with_forgejo_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A configured self-hosted host must not hijack a bare owner/repo.
+    monkeypatch.setenv("GITSWEEPER_FORGEJO_URL", "https://git.example.org")
+    provider = get_forge_provider("ConductionNL/openregister")
     assert isinstance(provider, GitHubClient)
     provider.close()
 

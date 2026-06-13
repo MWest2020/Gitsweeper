@@ -64,7 +64,7 @@ gitsweeper/
     capabilities/
       pr_throughput/    # one package per capability
     lib/
-      forge/            # shared: provider seam (GitHub today; Forgejo/GitLab follow-on)
+      forge/            # shared: provider seam (GitHub + Forgejo; GitLab follow-on)
       storage/          # shared: sqlite + portable SQL
       rendering/        # shared: renderer interface + impls
   tests/
@@ -196,9 +196,10 @@ Explicit non-goals, listed so they do not creep in:
 - Renderers beyond CLI table and JSON. No PDF, markdown, dashboards.
 - Multi-repo aggregation in a single run.
 - Incremental cache updates. Full refresh is good enough at this scale.
-- Concrete non-GitHub providers. The forge-provider seam exists (see the
-  `forge-access` capability), but Forgejo/Codeberg and GitLab providers —
-  and the normalized cross-forge model — are follow-on changes.
+- GitLab provider. The forge-provider seam (see the `forge-access`
+  capability) now has two concrete providers — **GitHub** and
+  **Forgejo/Gitea/Codeberg** — behind the normalized cross-forge model.
+  GitLab is the next follow-on change.
 - Multi-tenancy, auth, user management.
 - Scheduled runs, alerts, notifications.
 - Web UI.

@@ -14,7 +14,8 @@ import sqlite3
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+
+from gitsweeper.lib.forge.base import ForgePullRequest
 
 SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
@@ -107,14 +108,13 @@ def get_or_create_repository(
 def upsert_pull_requests(
     conn: sqlite3.Connection,
     repo_id: int,
-    prs: Iterable[dict[str, Any]],
+    prs: Iterable[ForgePullRequest],
 ) -> int:
     """Insert or update pull-request rows. Returns count written."""
     fetched_at = _utcnow_iso()
     count = 0
     for pr in prs:
-        merged_at = pr.get("merged_at")
-        state = "merged" if merged_at else pr.get("state", "open")
+        state = "merged" if pr.merged_at else pr.state
         conn.execute(
             """
             INSERT INTO pull_requests
@@ -132,13 +132,13 @@ def upsert_pull_requests(
             """,
             (
                 repo_id,
-                int(pr["number"]),
+                pr.number,
                 state,
-                pr["created_at"],
-                merged_at,
-                pr.get("closed_at"),
-                (pr.get("user") or {}).get("login") or "",
-                json.dumps(pr, separators=(",", ":")),
+                pr.created_at,
+                pr.merged_at,
+                pr.closed_at,
+                pr.author,
+                json.dumps(pr.raw, separators=(",", ":")),
                 fetched_at,
             ),
         )

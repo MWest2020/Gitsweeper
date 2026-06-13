@@ -8,6 +8,11 @@ import pytest
 
 from gitsweeper.capabilities import process_report
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import (
+    ForgeComment,
+    ForgeIssueEvent,
+    ForgePullRequest,
+)
 
 
 class FakeClient:
@@ -16,9 +21,9 @@ class FakeClient:
 
     def __init__(
         self,
-        prs: list[dict] | None = None,
-        comments_by_pr: dict[int, list[dict]] | None = None,
-        events_by_pr: dict[int, list[dict]] | None = None,
+        prs: list[ForgePullRequest] | None = None,
+        comments_by_pr: dict[int, list[ForgeComment]] | None = None,
+        events_by_pr: dict[int, list[ForgeIssueEvent]] | None = None,
     ) -> None:
         self._prs = prs or []
         self._comments = comments_by_pr or {}
@@ -27,36 +32,51 @@ class FakeClient:
         self.comment_calls: list[int] = []
         self.event_calls: list[int] = []
 
-    def list_pull_requests(self, owner: str, repo: str, state: str = "all") -> Iterator[dict]:
+    def list_pull_requests(
+        self, owner: str, repo: str, state: str = "all"
+    ) -> Iterator[ForgePullRequest]:
         self.pr_calls += 1
         yield from self._prs
 
-    def list_issue_comments(self, owner: str, repo: str, number: int) -> Iterator[dict]:
+    def list_issue_comments(
+        self, owner: str, repo: str, number: int
+    ) -> Iterator[ForgeComment]:
         self.comment_calls.append(number)
         yield from self._comments.get(number, [])
 
-    def list_issue_events(self, owner: str, repo: str, number: int) -> Iterator[dict]:
+    def list_issue_events(
+        self, owner: str, repo: str, number: int
+    ) -> Iterator[ForgeIssueEvent]:
         self.event_calls.append(number)
         yield from self._events.get(number, [])
 
 
-def _pr(number: int, *, author="alice", merged: bool = False, closed: bool = True) -> dict:
-    return {
-        "number": number,
-        "state": "closed" if (merged or closed) else "open",
-        "created_at": "2025-01-06T08:00:00Z",
-        "merged_at": "2025-01-07T08:00:00Z" if merged else None,
-        "closed_at": "2025-01-07T08:00:00Z" if (merged or closed) else None,
-        "user": {"login": author},
-    }
+def _pr(
+    number: int, *, author="alice", merged: bool = False, closed: bool = True
+) -> ForgePullRequest:
+    return ForgePullRequest(
+        number=number,
+        state="closed" if (merged or closed) else "open",
+        created_at="2025-01-06T08:00:00Z",
+        merged_at="2025-01-07T08:00:00Z" if merged else None,
+        closed_at="2025-01-07T08:00:00Z" if (merged or closed) else None,
+        author=author,
+        raw={"number": number, "user": {"login": author}},
+    )
 
 
-def _comment(at: str, who: str) -> dict:
-    return {"created_at": at, "user": {"login": who}}
+def _comment(at: str, who: str) -> ForgeComment:
+    return ForgeComment(
+        created_at=at, author=who, body="", raw={"created_at": at, "user": {"login": who}}
+    )
 
 
-def _close_event(actor: str | None) -> dict:
-    return {"event": "closed", "actor": ({"login": actor} if actor else None)}
+def _close_event(actor: str | None) -> ForgeIssueEvent:
+    return ForgeIssueEvent(
+        event="closed",
+        actor=actor,
+        raw={"event": "closed", "actor": ({"login": actor} if actor else None)},
+    )
 
 
 @pytest.fixture

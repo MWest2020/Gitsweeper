@@ -54,7 +54,7 @@ def test_list_pull_requests_follows_link_header() -> None:
         return httpx.Response(404, text=f"unexpected page {page}")
 
     client, sleeps = _client(httpx.MockTransport(handler), token="t")
-    nums = [p["number"] for p in client.list_pull_requests("o", "r")]
+    nums = [p.number for p in client.list_pull_requests("o", "r")]
     assert nums == [1, 2, 3]
     assert sleeps == []  # no rate-limit waits
 
@@ -102,7 +102,7 @@ def test_secondary_rate_limit_sleep_and_retry() -> None:
         return httpx.Response(200, json=[{"number": 99}], headers={"x-ratelimit-remaining": "100"})
 
     client, sleeps = _client(httpx.MockTransport(handler), token="t")
-    nums = [p["number"] for p in client.list_pull_requests("o", "r")]
+    nums = [p.number for p in client.list_pull_requests("o", "r")]
     assert nums == [99]
     assert state["calls"] == 2
     assert sleeps == [7.0]
@@ -130,7 +130,7 @@ def test_primary_rate_limit_sleeps_until_reset_before_next_request() -> None:
         )
 
     client, sleeps = _client(httpx.MockTransport(handler), token="t", now=40.0)
-    nums = [p["number"] for p in client.list_pull_requests("o", "r")]
+    nums = [p.number for p in client.list_pull_requests("o", "r")]
     assert nums == [1, 2]
     # Slept the gap between now=40 and reset=100 = 60s before the next request.
     assert sleeps == [60.0]
@@ -169,5 +169,5 @@ def test_list_org_repos_paginates() -> None:
         return httpx.Response(404)
 
     client, _ = _client(httpx.MockTransport(handler), token="t")
-    repos = [r["name"] for r in client.list_org_repos("ConductionNL")]
+    repos = [r.name for r in client.list_org_repos("ConductionNL")]
     assert repos == ["openregister", "opencatalogi"]

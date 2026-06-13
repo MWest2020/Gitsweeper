@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import ForgePullRequest
 
 
 @pytest.fixture
@@ -22,16 +23,20 @@ def _pr(
     merged_at: str | None = None,
     closed_at: str | None = None,
     author: str = "alice",
-) -> dict:
-    return {
-        "number": number,
-        "state": "closed" if closed_at or merged_at else "open",
-        "created_at": "2025-01-01T00:00:00Z",
-        "merged_at": merged_at,
-        "closed_at": closed_at,
-        "user": {"login": author},
-        "title": f"PR #{number}",
-    }
+) -> ForgePullRequest:
+    return ForgePullRequest(
+        number=number,
+        state="closed" if closed_at or merged_at else "open",
+        created_at="2025-01-01T00:00:00Z",
+        merged_at=merged_at,
+        closed_at=closed_at,
+        author=author,
+        raw={
+            "number": number,
+            "user": {"login": author},
+            "title": f"PR #{number}",
+        },
+    )
 
 
 def test_init_schema_is_idempotent(conn: sqlite3.Connection) -> None:

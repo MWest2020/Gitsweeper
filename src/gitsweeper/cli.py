@@ -77,7 +77,10 @@ def _validate_forge(value: str) -> str:
 
 
 _FORGE_OPTION = typer.Option(
-    "github", "--forge", callback=_validate_forge, help="Source forge (only 'github' today)"
+    "github",
+    "--forge",
+    callback=_validate_forge,
+    help="Source forge: 'github' (default) or 'forgejo' (Codeberg/Gitea)",
 )
 
 
@@ -110,8 +113,8 @@ def fetch(
     with get_forge_provider(forge=forge) as client:
         if org:
             try:
-                for body in client.list_org_repos(org):
-                    pair = (body.get("owner", {}).get("login") or org, body["name"])
+                for repo_obj in client.list_org_repos(org):
+                    pair = (repo_obj.owner or org, repo_obj.name)
                     if pair not in seen:
                         seen.add(pair)
                         targets.append(pair)

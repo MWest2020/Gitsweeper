@@ -45,10 +45,30 @@ uv run gitsweeper report nextcloud/app-certificate-requests \
 ### Forges
 
 Gitsweeper acquires data through a forge-provider seam (`lib/forge`).
-**GitHub is the only provider today** and the default, so a bare
-`owner/repo` works exactly as it always has. A `--forge` option exists
-(only `github` is accepted for now) ahead of the Forgejo/Codeberg and
-GitLab providers, which land as follow-on changes.
+**GitHub** (the default) and **Forgejo/Gitea/Codeberg** are supported.
+A bare `owner/repo` resolves to GitHub exactly as it always has, so no
+existing command changes.
+
+Select a forge in one of three ways:
+
+- explicitly: `--forge forgejo` (or `--forge github`);
+- by host: a `codeberg.org` URL is detected as Forgejo automatically;
+- self-hosted: set `GITSWEEPER_FORGEJO_URL` to your instance's base URL
+  (e.g. `https://git.example.org`) and a URL on that host is detected as
+  Forgejo.
+
+```bash
+export GITHUB_TOKEN=$(gh auth token)        # GitHub: read:repo PAT
+export FORGEJO_TOKEN=...                     # Forgejo/Codeberg/Gitea token
+export GITSWEEPER_FORGEJO_URL=https://...    # self-hosted base URL (defaults to Codeberg)
+
+gitsweeper fetch --forge forgejo forgejo/forgejo
+```
+
+Forgejo reads can run unauthenticated against public repositories on
+instances that permit it (such as Codeberg), with a warn-once notice;
+set `FORGEJO_TOKEN` for the full rate-limit budget. GitLab is a named
+follow-on change.
 
 ### Where things live on disk
 

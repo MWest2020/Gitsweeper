@@ -33,6 +33,7 @@ from billbird_client import (
 
 from gitsweeper.lib.commit_time import parse_issue_refs, parse_time_footer
 from gitsweeper.lib.forge import ForgeProvider, get_forge_provider
+from gitsweeper.lib.forge.base import ForgeCommit
 from gitsweeper.lib.rendering import AnalysisResult
 
 MIN_TOLERANCE_MINUTES = 15
@@ -68,26 +69,26 @@ def classify(commit_minutes: int, logged_minutes: int) -> str:
     return "over_logged" if diff > 0 else "over_committed"
 
 
-def _author_of(commit: dict[str, Any]) -> str:
-    """Best-effort author identifier: GitHub login if known, else the
+def _author_of(commit: ForgeCommit) -> str:
+    """Best-effort author identifier: forge login if known, else the
     name in the commit metadata, else "unknown". We use one canonical
     string so commits and logs end up in the same bucket."""
-    if author := (commit.get("author") or {}).get("login"):
-        return author
-    if name := (commit.get("commit") or {}).get("author", {}).get("name"):
-        return name
+    if commit.author:
+        return commit.author
+    if commit.author_name:
+        return commit.author_name
     return "unknown"
 
 
 def _aggregate_commits(
-    commits: Iterable[dict[str, Any]], repo: str
+    commits: Iterable[ForgeCommit], repo: str
 ) -> dict[_Key, int]:
     """Walk commits, parse footers + issue refs, bucket per
     ``(repo, author, issue)``. Commits without a footer are skipped
     silently (they're not opinions about time)."""
     buckets: dict[_Key, int] = defaultdict(int)
     for commit in commits:
-        message = (commit.get("commit") or {}).get("message", "")
+        message = commit.message
         minutes = parse_time_footer(message)
         if minutes is None:
             continue

@@ -23,13 +23,14 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import ForgeIssueEvent
 from gitsweeper.lib.rendering import AnalysisResult
 
 
 class _IssueEventClient(Protocol):
     def list_issue_events(
         self, owner: str, repo: str, issue_number: int
-    ) -> Iterable[dict]: ...
+    ) -> Iterable[ForgeIssueEvent]: ...
 
 
 @dataclass(frozen=True)
@@ -38,13 +39,11 @@ class EnrichmentSummary:
     skipped_cached: int
 
 
-def _last_close_actor(events: Iterable[dict]) -> str | None:
+def _last_close_actor(events: Iterable[ForgeIssueEvent]) -> str | None:
     last_actor: str | None = None
     for event in events:
-        if event.get("event") == "closed":
-            actor = event.get("actor") or {}
-            login = actor.get("login")
-            last_actor = login if login else last_actor
+        if event.event == "closed":
+            last_actor = event.actor if event.actor else last_actor
     return last_actor
 
 

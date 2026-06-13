@@ -9,13 +9,16 @@ import pytest
 
 from gitsweeper.capabilities import pr_throughput, regression_monitoring
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import ForgePullRequest
 
 
 class FakeFetchClient:
-    def __init__(self, prs: list[dict]) -> None:
+    def __init__(self, prs: list[ForgePullRequest]) -> None:
         self._prs = prs
 
-    def list_pull_requests(self, owner: str, repo: str, state: str = "all") -> Iterator[dict]:
+    def list_pull_requests(
+        self, owner: str, repo: str, state: str = "all"
+    ) -> Iterator[ForgePullRequest]:
         yield from self._prs
 
 
@@ -40,7 +43,7 @@ def _seed_weekly_volume(
     start_week: int = 1,
 ) -> None:
     """Create N PRs in each ISO week, all merged the same day."""
-    prs: list[dict] = []
+    prs: list[ForgePullRequest] = []
     pr_number = 1
     for offset, count in enumerate(counts):
         # Walk through ISO weeks: year/week increments via Monday calc
@@ -48,14 +51,15 @@ def _seed_weekly_volume(
         for _ in range(count):
             created = monday.replace(hour=8).strftime("%Y-%m-%dT%H:%M:%SZ")
             merged = (monday + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
-            prs.append({
-                "number": pr_number,
-                "state": "closed",
-                "created_at": created,
-                "merged_at": merged,
-                "closed_at": merged,
-                "user": {"login": "alice"},
-            })
+            prs.append(ForgePullRequest(
+                number=pr_number,
+                state="closed",
+                created_at=created,
+                merged_at=merged,
+                closed_at=merged,
+                author="alice",
+                raw={"number": pr_number, "user": {"login": "alice"}},
+            ))
             pr_number += 1
     pr_throughput.fetch_and_persist(conn, FakeFetchClient(prs=prs), owner, name)
 

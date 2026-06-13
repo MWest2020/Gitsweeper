@@ -21,6 +21,7 @@ from gitsweeper.capabilities.commit_time_reconcile import (
     reconcile,
 )
 from gitsweeper.lib.forge import GitHubClient
+from gitsweeper.lib.forge.base import ForgeCommit
 
 # --- Classifier ----------------------------------------------------
 
@@ -56,7 +57,12 @@ def _commit(
     login: str | None = None,
     name: str | None = None,
 ) -> dict[str, Any]:
-    """Shape mirroring what GitHub's /commits endpoint returns."""
+    """Shape mirroring what GitHub's /commits endpoint returns.
+
+    Used both as the JSON body fed to ``httpx_mock`` (so it flows through the
+    real ``GitHubClient`` mapping) and, via :func:`_forge_commit`, as the
+    normalized record the aggregation helpers consume directly.
+    """
     return {
         "sha": sha,
         "author": {"login": login} if login else None,
@@ -67,13 +73,30 @@ def _commit(
     }
 
 
+def _forge_commit(
+    sha: str,
+    message: str,
+    login: str | None = None,
+    name: str | None = None,
+) -> ForgeCommit:
+    """The normalized commit the aggregation helpers operate on."""
+    return ForgeCommit(
+        sha=sha,
+        message=message,
+        author=login,
+        author_name=name or login or "unknown",
+        author_date=None,
+        raw=_commit(sha, message, login, name),
+    )
+
+
 def test_aggregate_commits_groups_per_issue_and_author() -> None:
     commits = [
-        _commit("a1", "fix\n\nCloses #5\nTime: 1h", login="alice"),
-        _commit("a2", "more work on #5\n\nTime: 30m", login="alice"),
-        _commit("a3", "refactor\n\nFixes #7\nTime: 45m", login="alice"),
-        _commit("b1", "tidy\n\nCloses #5\nTime: 15m", login="bob"),
-        _commit("c1", "no footer\n\nCloses #5"),
+        _forge_commit("a1", "fix\n\nCloses #5\nTime: 1h", login="alice"),
+        _forge_commit("a2", "more work on #5\n\nTime: 30m", login="alice"),
+        _forge_commit("a3", "refactor\n\nFixes #7\nTime: 45m", login="alice"),
+        _forge_commit("b1", "tidy\n\nCloses #5\nTime: 15m", login="bob"),
+        _forge_commit("c1", "no footer\n\nCloses #5"),
     ]
     buckets = _aggregate_commits(commits, "org/repo")
     keys = {(k.author, k.issue): v for k, v in buckets.items()}
@@ -84,7 +107,7 @@ def test_aggregate_commits_groups_per_issue_and_author() -> None:
 
 
 def test_aggregate_commits_unreferenced_goes_to_null_issue() -> None:
-    commits = [_commit("x1", "no issue ref\n\nTime: 20m", login="alice")]
+    commits = [_forge_commit("x1", "no issue ref\n\nTime: 20m", login="alice")]
     buckets = _aggregate_commits(commits, "org/repo")
     [(k, v)] = buckets.items()
     assert k.issue is None

@@ -8,28 +8,42 @@ import pytest
 
 from gitsweeper.capabilities import pr_classification, pr_throughput
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import (
+    ForgeIssueEvent,
+    ForgePullRequest,
+)
 
 
 class FakeEventsClient:
-    def __init__(self, events_by_pr: dict[int, list[dict]]) -> None:
+    def __init__(self, events_by_pr: dict[int, list[ForgeIssueEvent]]) -> None:
         self._events = events_by_pr
         self.calls: list[int] = []
 
     # Required for fetch_and_persist
-    def list_pull_requests(self, owner: str, repo: str, state: str = "all") -> Iterator[dict]:
+    def list_pull_requests(
+        self, owner: str, repo: str, state: str = "all"
+    ) -> Iterator[ForgePullRequest]:
         return iter([])
 
-    def list_issue_events(self, owner: str, repo: str, number: int) -> Iterator[dict]:
+    def list_issue_events(
+        self, owner: str, repo: str, number: int
+    ) -> Iterator[ForgeIssueEvent]:
         self.calls.append(number)
         yield from self._events.get(number, [])
 
 
-def _close(actor: str | None = None) -> dict:
-    return {"event": "closed", "actor": ({"login": actor} if actor else None)}
+def _close(actor: str | None = None) -> ForgeIssueEvent:
+    return ForgeIssueEvent(
+        event="closed",
+        actor=actor,
+        raw={"event": "closed", "actor": ({"login": actor} if actor else None)},
+    )
 
 
-def _other(name: str = "labeled") -> dict:
-    return {"event": name, "actor": {"login": "anyone"}}
+def _other(name: str = "labeled") -> ForgeIssueEvent:
+    return ForgeIssueEvent(
+        event=name, actor="anyone", raw={"event": name, "actor": {"login": "anyone"}}
+    )
 
 
 @pytest.fixture
@@ -51,15 +65,21 @@ def _pr(
     author: str = "alice",
     merged: bool = False,
     closed: bool = True,
-) -> dict:
-    return {
-        "number": number,
-        "state": "closed" if (merged or closed) else "open",
-        "created_at": "2025-01-01T00:00:00Z",
-        "merged_at": "2025-01-02T00:00:00Z" if merged else None,
-        "closed_at": "2025-01-02T00:00:00Z" if (merged or closed) else None,
-        "user": {"login": author},
-    }
+) -> ForgePullRequest:
+    merged_at = "2025-01-02T00:00:00Z" if merged else None
+    closed_at = "2025-01-02T00:00:00Z" if (merged or closed) else None
+    return ForgePullRequest(
+        number=number,
+        state="closed" if (merged or closed) else "open",
+        created_at="2025-01-01T00:00:00Z",
+        merged_at=merged_at,
+        closed_at=closed_at,
+        author=author,
+        raw={
+            "number": number,
+            "user": {"login": author},
+        },
+    )
 
 
 def test_enrichment_only_runs_for_closed_without_merge(conn: sqlite3.Connection) -> None:
@@ -156,12 +176,15 @@ def test_pr_throughput_fetch_and_persist_compatible_with_classify_flow(
     are usable by classification (regression guard)."""
     from tests.test_pr_throughput import FakeClient as ThroughputFake
 
-    pr1 = {
-        "number": 1, "state": "closed",
-        "created_at": "2025-01-01T00:00:00Z",
-        "merged_at": None, "closed_at": "2025-01-02T00:00:00Z",
-        "user": {"login": "alice"},
-    }
+    pr1 = ForgePullRequest(
+        number=1,
+        state="closed",
+        created_at="2025-01-01T00:00:00Z",
+        merged_at=None,
+        closed_at="2025-01-02T00:00:00Z",
+        author="alice",
+        raw={"number": 1, "user": {"login": "alice"}},
+    )
     summary = pr_throughput.fetch_and_persist(
         conn, ThroughputFake(prs=[pr1]), "o", "r"
     )

@@ -25,6 +25,7 @@ import polars as pl
 
 from gitsweeper.lib import storage
 from gitsweeper.lib.forge import ForgeProvider
+from gitsweeper.lib.forge.base import ForgeComment
 from gitsweeper.lib.rendering import AnalysisResult
 
 
@@ -169,12 +170,12 @@ def compute_first_response(
 
 
 def _first_non_author_comment(
-    comments: Iterable[dict], author: str
+    comments: Iterable[ForgeComment], author: str
 ) -> tuple[str | None, str | None]:
     for comment in comments:
-        user = (comment.get("user") or {}).get("login")
+        user = comment.author
         if user and user != author:
-            return comment.get("created_at"), user
+            return comment.created_at, user
     return None, None
 
 

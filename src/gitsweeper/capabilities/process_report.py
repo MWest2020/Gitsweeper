@@ -17,21 +17,26 @@ from typing import Protocol
 
 from gitsweeper.capabilities import pr_classification, pr_throughput
 from gitsweeper.lib import storage
+from gitsweeper.lib.forge.base import (
+    ForgeComment,
+    ForgeIssueEvent,
+    ForgePullRequest,
+)
 from gitsweeper.lib.rendering import AnalysisResult, get_renderer
 
 
 class ReportClient(Protocol):
     def list_pull_requests(
         self, owner: str, repo: str, state: str = "all"
-    ) -> Iterable[dict]: ...
+    ) -> Iterable[ForgePullRequest]: ...
 
     def list_issue_comments(
         self, owner: str, repo: str, issue_number: int
-    ) -> Iterable[dict]: ...
+    ) -> Iterable[ForgeComment]: ...
 
     def list_issue_events(
         self, owner: str, repo: str, issue_number: int
-    ) -> Iterable[dict]: ...
+    ) -> Iterable[ForgeIssueEvent]: ...
 
 
 class CacheEmpty(RuntimeError):
