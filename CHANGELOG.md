@@ -9,6 +9,21 @@ once there is working code worth tagging.
 ## [Unreleased]
 
 ### Added
+- `2026-06-14` — **Scheduled delivery** (`scheduled-delivery` change). A new
+  `gitsweeper deliver <repo>` command composes the `dora` and `retro` halves
+  into one team-level message and renders it as a Slack Block Kit payload
+  (default, `--format slack`) or markdown (`--format markdown`) — same
+  team-level data either way, referencing PRs by number only with no author,
+  login, or `@`-mention. It reuses the two existing capabilities (fetching and
+  caching comments like `retro`, hence `--forge`) and adds no new analysis.
+  Egress is opt-in and explicit: by default the payload goes to stdout or
+  `--out FILE` with no network call; `--post` POSTs the Block Kit to the single
+  incoming webhook in `SLACK_WEBHOOK_URL`, and `--post` without that variable
+  is a named error that sends nothing. The webhook is read from the environment
+  only — never printed, written, or logged. Scheduling is left to the user's own
+  cron/routine; the command runs once and exits. This supersedes the weekly
+  Slack Block Kit GitHub Action in `Road_to_el_DORA-do` with a portable command
+  that composes with any scheduler instead of coupling to one forge's CI.
 - `2026-06-14` — **Retro signals** (`retro-signals` change). A new
   `gitsweeper retro <repo>` command surfaces deterministic, team-level
   retro cues over the local PR cache: stale open PRs (open longer than

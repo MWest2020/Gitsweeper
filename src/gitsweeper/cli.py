@@ -8,8 +8,10 @@ logic lives in this file.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -23,6 +25,7 @@ from gitsweeper.capabilities import (
     pr_throughput,
     regression_monitoring,
     retro_signals,
+    scheduled_delivery,
 )
 from gitsweeper.capabilities import process_report as _process_report
 from gitsweeper.lib import storage
@@ -300,6 +303,138 @@ def retro(
             since=since_iso, stale_days=stale_days,
         )
     _renderer_for(json_out).render(result)
+
+
+@app.command()
+def deliver(
+    repo: str = typer.Argument(..., help="owner/repo"),
+    forge: str = _FORGE_OPTION,
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on dates (YYYY-MM-DD UTC)"
+    ),
+    period: str = typer.Option(
+        "month",
+        "--period",
+        help="DORA deployment-frequency bucket: week or month (default)",
+    ),
+    out_format: str = typer.Option(
+        "slack",
+        "--format",
+        help="Render as 'slack' Block Kit (default) or 'markdown'",
+    ),
+    out: Path | None = typer.Option(
+        None, "--out", help="Write the rendered payload to this path instead of stdout"
+    ),
+    post: bool = typer.Option(
+        False,
+        "--post",
+        help="POST the Block Kit payload to SLACK_WEBHOOK_URL (opt-in egress)",
+    ),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Compose DORA + retro into one team-level message and deliver it.
+
+    Reuses the `dora` and `retro` capabilities (it fetches+caches comments
+    like `retro`, hence `--forge`) and renders the blended result as a Slack
+    Block Kit payload (default) or markdown. Team-level by design: no per-author
+    filter, no login or `@`-mention anywhere in the output.
+
+    Egress is opt-in and explicit: by default the payload goes to stdout (or
+    `--out FILE`) with no network call. With `--post`, the Block Kit payload is
+    POSTed to the single incoming webhook in `SLACK_WEBHOOK_URL`; `--post`
+    without that variable is a named error and makes no request. The webhook is
+    read from the environment only — never printed, written, or logged.
+    """
+    if period not in ("week", "month"):
+        raise typer.BadParameter(
+            f"unsupported --period {period!r}; supported: week, month"
+        )
+    if out_format not in ("slack", "markdown"):
+        raise typer.BadParameter(
+            f"unsupported --format {out_format!r}; supported: slack, markdown"
+        )
+
+    # Gate egress before any work: --post requires the webhook in the env, and
+    # we resolve it here so a missing variable fails fast with no network call.
+    webhook_url: str | None = None
+    if post:
+        webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
+        if not webhook_url:
+            raise typer.BadParameter(
+                "--post requires the SLACK_WEBHOOK_URL environment variable to be set"
+            )
+
+    owner, name = _split_repo(repo)
+    since_iso = _validate_since(since)
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    repo_id = storage.get_or_create_repository(conn, owner, name)
+
+    # Fetch + cache comments (like `retro`), then compute both halves from the
+    # cache. We call the pure build_report functions directly so we hold the
+    # report dataclasses to render, rather than the table/JSON AnalysisResult.
+    with get_forge_provider(forge=forge) as client:
+        retro_signals.fetch_and_cache_comments(
+            conn, client, repo_id, owner, name, since=since_iso
+        )
+
+    repo_full = f"{owner}/{name}"
+    all_rows = storage.list_pull_requests(conn, repo_id)
+
+    # DORA scopes on merge date; retro scopes on creation date (mirrors each
+    # capability's own scoping).
+    dora_rows = all_rows
+    if since_iso is not None:
+        dora_rows = [
+            r for r in all_rows if r["merged_at"] is not None and r["merged_at"] >= since_iso
+        ]
+    dora_report = dora_metrics.build_report(
+        dora_rows, repo=repo_full, period=period, since=since_iso
+    )
+
+    retro_rows = all_rows
+    if since_iso is not None:
+        retro_rows = [r for r in all_rows if r["created_at"] >= since_iso]
+    comment_rows = storage.list_comments(conn, repo_id)
+    retro_report = retro_signals.build_report(
+        retro_rows,
+        comment_rows,
+        repo=repo_full,
+        since=since_iso,
+        stale_days=retro_signals.STALE_DAYS,
+    )
+
+    meta = {
+        "repo": repo_full,
+        "window": f"since {since_iso}" if since_iso else "all time",
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+    if out_format == "slack":
+        payload = scheduled_delivery.build_blockkit(dora_report, retro_report, meta)
+        rendered = json.dumps(payload, indent=2)
+    else:
+        rendered = scheduled_delivery.build_markdown(dora_report, retro_report, meta)
+
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(rendered, encoding="utf-8")
+        typer.echo(f"Wrote {out}", err=True)
+    else:
+        typer.echo(rendered, nl=False if out_format == "markdown" else True)
+
+    if post:
+        # Always post the Block Kit payload (Slack incoming webhooks expect it),
+        # regardless of --format. The webhook URL is never echoed.
+        block_payload = scheduled_delivery.build_blockkit(
+            dora_report, retro_report, meta
+        )
+        try:
+            scheduled_delivery.post_to_webhook(webhook_url, block_payload)
+        except scheduled_delivery.DeliveryError as exc:
+            typer.echo(f"delivery failed: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        typer.echo("Posted to the configured Slack webhook.", err=True)
 
 
 @app.command()

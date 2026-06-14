@@ -100,6 +100,7 @@ taken. Keep them locally for sharing; do not commit them.
 | `dora <repo> [--since] [--period week\|month] [--json]` | The four DORA metrics (team-level, proxy-based) over the cache. No `--author`. | 0 (cache only). |
 | `retro <repo> [--since] [--stale-days N] [--json]` | Team-level retro signals (stale open PRs, long threads, friction language, tech-debt markers, smooth merges) over the cache + a comments cache. No `--author`. | ~1 per uncached PR (comment fetch), then 0. |
 | `report <repo> [--author] [--since] [--refresh] [--out PATH]` | Compose every section above into a single markdown document. `--refresh` runs fetch + first-response + classify before composing. | Sum of the above when `--refresh`; 0 otherwise. |
+| `deliver <repo> [--forge] [--since] [--period week\|month] [--format slack\|markdown] [--out PATH] [--post]` | Compose DORA + retro into one team-level message (Slack Block Kit by default, or markdown). Writes to stdout/`--out`; with `--post` it POSTs the Block Kit to `SLACK_WEBHOOK_URL`. No `--author`. | ~1 per uncached PR (comment fetch), then 0. No network unless `--post`. |
 
 ## Manager-MCP
 
@@ -176,6 +177,32 @@ keyword sets are documented, case-insensitive constants — no LLM, no
 scoring model — carried verbatim from
 [`Road_to_el_DORA-do/.github/prompts/sprint-retro.md`](https://github.com/MWest2020/Road_to_el_DORA-do)
 so this command stays continuous with the workflow it supersedes.
+
+### Delivery — opt-in egress, you do the scheduling
+
+`gitsweeper deliver <repo>` blends the DORA and retro halves into one
+team-level message and renders it as a Slack Block Kit payload (default,
+`--format slack`) or markdown (`--format markdown`). By default it writes
+to stdout or `--out FILE` and makes **no network call**.
+
+Egress is opt-in and explicit. `--post` POSTs the Block Kit payload to a
+single Slack incoming webhook read from the `SLACK_WEBHOOK_URL`
+environment variable; `--post` without that variable is a named error and
+sends nothing. The webhook is read from the environment only — never
+printed, written to `--out`, or logged. One webhook = one channel.
+
+**Scheduling is your job.** `deliver` runs once and exits; it embeds no
+scheduler. Run it from your own cron entry or scheduling routine, e.g.:
+
+```bash
+# Mondays at 09:00, post last month's report to Slack.
+0 9 * * 1  SLACK_WEBHOOK_URL=... gitsweeper deliver octocat/hello --post
+```
+
+This supersedes the weekly Slack Block Kit GitHub Action in
+[`Road_to_el_DORA-do`](https://github.com/MWest2020/Road_to_el_DORA-do):
+a portable command composes with any scheduler instead of coupling to one
+forge's CI.
 
 ## Development
 
