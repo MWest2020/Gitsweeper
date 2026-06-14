@@ -9,6 +9,26 @@ once there is working code worth tagging.
 ## [Unreleased]
 
 ### Added
+- `2026-06-14` — **Retro signals** (`retro-signals` change). A new
+  `gitsweeper retro <repo>` command surfaces deterministic, team-level
+  retro cues over the local PR cache: stale open PRs (open longer than
+  `--stale-days`, default 14), long discussion threads (more than 10
+  comments), friction language, tech-debt markers, and smooth merges
+  (merged within 3 days with fewer than 2 comments). Every signal
+  references a PR by number only — never an author (no `--author`,
+  team-level by design). Friction (Dutch + English) and tech-debt
+  keyword sets are documented, case-insensitive constants carried
+  verbatim from `Road_to_el_DORA-do/.github/prompts/sprint-retro.md` —
+  no LLM, no scoring model. This change adds a new **`pr_comments`**
+  cache that, for the first time, stores PR discussion **comment bodies**
+  locally (author, created_at, body): friction and long-thread signals
+  live in the discussion, not the title. It is a single-user local cache
+  and `retro` output stays team-level (PR numbers, no authors), but the
+  bodies are retained. The cache is populated via the provider's comment
+  listing (one call per uncached PR, like `first-response`) and read on
+  subsequent runs. An empty population reports each signal as explicitly
+  empty rather than erroring. Renders through the existing table/JSON
+  renderers. Not a breaking CLI change.
 - `2026-06-13` — **DORA metrics** (`dora-metrics` change). A new
   `gitsweeper dora <repo>` command computes the four DORA metrics —
   deployment frequency, lead time for changes, change failure rate, and

@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from gitsweeper.lib.forge.base import ForgePullRequest
+from gitsweeper.lib.forge.base import ForgeComment, ForgePullRequest
 
 SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
@@ -56,6 +56,24 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         pr_id        INTEGER PRIMARY KEY REFERENCES pull_requests(id),
         actor        TEXT,
         fetched_at   TEXT    NOT NULL
+    )
+    """,
+    # Local cache of PR discussion bodies, populated via the provider's
+    # comment listing. The first time `retro` runs for a repo it fetches and
+    # writes one row per comment; later runs read from here. Uniqueness is
+    # (pr_id, created_at, author): no forge guarantees a stable comment id in
+    # the normalized `ForgeComment`, so we de-dupe on the natural key instead
+    # — re-fetching the same comment updates its body in place rather than
+    # duplicating the row. Portable SQL (no AUTOINCREMENT, no JSON1); body is
+    # plain TEXT.
+    """
+    CREATE TABLE IF NOT EXISTS pr_comments (
+        pr_id        INTEGER NOT NULL REFERENCES pull_requests(id),
+        author       TEXT,
+        created_at   TEXT,
+        body         TEXT,
+        fetched_at   TEXT    NOT NULL,
+        UNIQUE (pr_id, created_at, author)
     )
     """,
 )
@@ -165,6 +183,71 @@ def list_pull_requests(
         params.append(author)
     sql += " ORDER BY number"
     return conn.execute(sql, params).fetchall()
+
+
+def upsert_comments(
+    conn: sqlite3.Connection,
+    pr_id: int,
+    comments: Iterable[ForgeComment],
+) -> int:
+    """Insert or update cached comment rows for one PR. Returns count written.
+
+    De-dupes on (pr_id, created_at, author): re-fetching the same comment
+    updates its body and fetched_at in place rather than duplicating the row,
+    so a re-run is idempotent."""
+    fetched_at = _utcnow_iso()
+    count = 0
+    for comment in comments:
+        conn.execute(
+            """
+            INSERT INTO pr_comments (pr_id, author, created_at, body, fetched_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (pr_id, created_at, author) DO UPDATE SET
+                body       = excluded.body,
+                fetched_at = excluded.fetched_at
+            """,
+            (pr_id, comment.author, comment.created_at, comment.body, fetched_at),
+        )
+        count += 1
+    conn.commit()
+    return count
+
+
+def list_comments(
+    conn: sqlite3.Connection,
+    repo_id: int,
+) -> list[sqlite3.Row]:
+    """Return cached comment rows joined to their PR for a repo.
+
+    Each row carries the PR number plus the comment's author, created_at,
+    and body, ordered by PR number then comment time. Callers that only
+    need per-PR counts can group on `number`."""
+    sql = (
+        "SELECT pr.number AS number, "
+        "       c.author AS author, c.created_at AS created_at, c.body AS body "
+        "FROM pr_comments c "
+        "JOIN pull_requests pr ON pr.id = c.pr_id "
+        "WHERE pr.repo_id = ? "
+        "ORDER BY pr.number, c.created_at"
+    )
+    return conn.execute(sql, (repo_id,)).fetchall()
+
+
+def list_prs_with_comments(
+    conn: sqlite3.Connection,
+    repo_id: int,
+) -> set[int]:
+    """Return the set of PR ids that already have at least one cached comment.
+
+    The `retro` fetch loop uses this to skip PRs whose comments are already
+    cached so a second run does not re-fetch them."""
+    rows = conn.execute(
+        "SELECT DISTINCT pr_id FROM pr_comments c "
+        "JOIN pull_requests pr ON pr.id = c.pr_id "
+        "WHERE pr.repo_id = ?",
+        (repo_id,),
+    ).fetchall()
+    return {int(r["pr_id"]) for r in rows}
 
 
 def upsert_first_response(

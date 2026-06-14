@@ -51,6 +51,7 @@ def test_init_schema_is_idempotent(conn: sqlite3.Connection) -> None:
         "pull_requests",
         "pr_first_responses",
         "pr_close_actors",
+        "pr_comments",
     } <= tables
 
 
@@ -180,3 +181,41 @@ def test_close_actor_upsert_idempotent_and_filters_by_author(conn: sqlite3.Conne
 
     only_mark = storage.list_close_actors(conn, repo_id, author="MWest2020")
     assert [r["number"] for r in only_mark] == [1]
+
+
+def test_comments_upsert_and_list_with_dedupe(conn: sqlite3.Connection) -> None:
+    from gitsweeper.lib.forge.base import ForgeComment
+
+    repo_id = storage.get_or_create_repository(conn, "o", "r")
+    storage.upsert_pull_requests(conn, repo_id, [_pr(1), _pr(2)])
+    by_num = {r["number"]: r for r in storage.list_pull_requests(conn, repo_id)}
+
+    def _c(author: str, created: str, body: str) -> ForgeComment:
+        return ForgeComment(created_at=created, author=author, body=body, raw={})
+
+    storage.upsert_comments(conn, by_num[1]["id"], [
+        _c("alice", "2025-01-01T01:00:00Z", "first"),
+        _c("bob", "2025-01-01T02:00:00Z", "second"),
+    ])
+    storage.upsert_comments(conn, by_num[2]["id"], [
+        _c("carol", "2025-01-01T03:00:00Z", "on pr 2"),
+    ])
+
+    rows = storage.list_comments(conn, repo_id)
+    assert [(r["number"], r["author"], r["body"]) for r in rows] == [
+        (1, "alice", "first"),
+        (1, "bob", "second"),
+        (2, "carol", "on pr 2"),
+    ]
+    assert storage.list_prs_with_comments(conn, repo_id) == {
+        by_num[1]["id"], by_num[2]["id"]
+    }
+
+    # Re-fetching the same (pr_id, created_at, author) updates the body in
+    # place — no duplicate row.
+    storage.upsert_comments(conn, by_num[1]["id"], [
+        _c("alice", "2025-01-01T01:00:00Z", "edited"),
+    ])
+    rows = storage.list_comments(conn, repo_id)
+    assert len(rows) == 3
+    assert next(r for r in rows if r["author"] == "alice")["body"] == "edited"

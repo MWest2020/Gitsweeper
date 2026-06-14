@@ -22,6 +22,7 @@ from gitsweeper.capabilities import (
     pr_classification,
     pr_throughput,
     regression_monitoring,
+    retro_signals,
 )
 from gitsweeper.capabilities import process_report as _process_report
 from gitsweeper.lib import storage
@@ -260,6 +261,44 @@ def dora(
     result = dora_metrics.compute_dora(
         conn, repo_id, owner, name, period=period, since=since_iso
     )
+    _renderer_for(json_out).render(result)
+
+
+@app.command()
+def retro(
+    repo: str = typer.Argument(..., help="owner/repo"),
+    forge: str = _FORGE_OPTION,
+    since: str | None = typer.Option(
+        None, "--since", help="Lower bound on PR creation date (YYYY-MM-DD UTC)"
+    ),
+    stale_days: int = typer.Option(
+        retro_signals.STALE_DAYS,
+        "--stale-days",
+        help="An open PR older than this many days counts as stale (default 14)",
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    db_path: Path = typer.Option(None, "--db-path", help="SQLite cache path"),
+) -> None:
+    """Surface team-level retro signals for a repo's cached PRs.
+
+    Stale open PRs, long discussion threads, friction language, tech-debt
+    markers, and smooth merges — every signal referenced by PR number only,
+    never by author (retro is team-level by design, with no per-author
+    filter). Fetches each in-scope PR's comments once into a local cache
+    (one comment-listing call per uncached PR); subsequent runs read the
+    cache. Friction/tech-debt keyword sets are documented, deterministic
+    constants — no LLM.
+    """
+    owner, name = _split_repo(repo)
+    since_iso = _validate_since(since)
+    db = db_path or _default_db_path()
+    conn = _open_db(db)
+    repo_id = storage.get_or_create_repository(conn, owner, name)
+    with get_forge_provider(forge=forge) as client:
+        result = retro_signals.compute_retro_signals(
+            conn, client, repo_id, owner, name,
+            since=since_iso, stale_days=stale_days,
+        )
     _renderer_for(json_out).render(result)
 
 

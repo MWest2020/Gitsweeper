@@ -98,6 +98,7 @@ taken. Keep them locally for sharing; do not commit them.
 | `classify <repo> [--author] [--json]` | Self-pulled vs maintainer-closed for closed-without-merge PRs; uses the issue-events endpoint to fill the data the pulls endpoint omits. | ~1 per uncached closed-unmerged PR. |
 | `patterns <repo> [--since] [--author] [--json]` | Day-of-week and hour-of-day distributions for submissions and responses. | 0 (cache only). |
 | `dora <repo> [--since] [--period week\|month] [--json]` | The four DORA metrics (team-level, proxy-based) over the cache. No `--author`. | 0 (cache only). |
+| `retro <repo> [--since] [--stale-days N] [--json]` | Team-level retro signals (stale open PRs, long threads, friction language, tech-debt markers, smooth merges) over the cache + a comments cache. No `--author`. | ~1 per uncached PR (comment fetch), then 0. |
 | `report <repo> [--author] [--since] [--refresh] [--out PATH]` | Compose every section above into a single markdown document. `--refresh` runs fetch + first-response + classify before composing. | Sum of the above when `--refresh`; 0 otherwise. |
 
 ## Manager-MCP
@@ -132,6 +133,9 @@ uv run gitsweeper mcp
 - [`dora-metrics`](./openspec/specs/dora-metrics/spec.md)
   — the four DORA metrics computed team-level from the PR cache, with
   documented proxies and DORA performance bands.
+- [`retro-signals`](./openspec/specs/retro-signals/spec.md)
+  — team-level retro cues over the PR cache and a new comment-body
+  cache, with documented deterministic keyword sets.
 
 ### DORA — team-level, proxy-based
 
@@ -153,6 +157,25 @@ releases, per-PR commits, or issue history, v1 uses documented proxies:
 
 Each metric is annotated with its Elite/High/Medium/Low DORA band and
 the sample count it came from.
+
+### Retro signals — team-level, deterministic
+
+`gitsweeper retro <repo>` surfaces deterministic cues for a team
+retrospective over the cached PRs plus a comment cache: **stale open
+PRs** (open longer than `--stale-days`, default 14), **long threads**
+(more than 10 cached comments), **friction language**, **tech-debt
+markers**, and **smooth merges** (merged within 3 days with fewer than
+2 comments). Every signal references a PR by number only — never an
+author (no `--author`); comment authors are stored in the cache but
+never surfaced.
+
+The first run fetches each in-scope PR's comments once (one
+comment-listing call per uncached PR) into a local `pr_comments` cache;
+later runs read the cache. Friction (Dutch + English) and tech-debt
+keyword sets are documented, case-insensitive constants — no LLM, no
+scoring model — carried verbatim from
+[`Road_to_el_DORA-do/.github/prompts/sprint-retro.md`](https://github.com/MWest2020/Road_to_el_DORA-do)
+so this command stays continuous with the workflow it supersedes.
 
 ## Development
 
