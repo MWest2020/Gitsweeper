@@ -112,6 +112,24 @@ def test_tech_debt_matching() -> None:
     assert retro_signals.count_matches("ship it", retro_signals.TECH_DEBT_KEYWORDS) == 0
 
 
+def test_count_matches_is_whole_word_only() -> None:
+    # Single-word keywords must match on word boundaries, not raw substrings.
+    assert retro_signals.count_matches("the hackathon was fun", ("hack",)) == 0
+    assert retro_signals.count_matches("merged all the todos", ("todo",)) == 0
+    assert retro_signals.count_matches("she was starstruck", ("stuck",)) == 0
+    # The whole word still matches, including with adjacent punctuation/case.
+    assert retro_signals.count_matches("TODO: fix this", ("todo",)) == 1
+    assert retro_signals.count_matches("it is a hack", ("hack",)) == 1
+
+
+def test_count_matches_multiword_and_case_insensitive() -> None:
+    # Multi-word phrases still match across the space via the \b...\b boundaries.
+    assert retro_signals.count_matches("just a quick fix", ("quick fix",)) == 1
+    assert retro_signals.count_matches("still WAITING ON the API", ("waiting on",)) == 1
+    # Case-insensitive on both sides.
+    assert retro_signals.count_matches("a HACK indeed", ("hack",)) == 1
+
+
 # ---- friction ranked over titles + bodies ---------------------------------
 
 
@@ -297,6 +315,25 @@ def test_fetch_caches_and_does_not_refetch(conn: sqlite3.Connection) -> None:
     assert sorted(provider.calls) == [1, 2]
 
     # Second run: PR 1 already cached. PR 2 has a comment too, so both skipped.
+    provider.calls.clear()
+    second = retro_signals.fetch_and_cache_comments(conn, provider, repo_id, "o", "r")
+    assert second == 0
+    assert provider.calls == []
+
+
+def test_zero_comment_pr_fetched_once_then_skipped(conn: sqlite3.Connection) -> None:
+    # A PR with no comments must be marked fetched so a re-run does not re-fetch
+    # it (the skip-set is the fetched-marker, not the presence of comment rows).
+    repo_id = storage.get_or_create_repository(conn, "o", "r")
+    storage.upsert_pull_requests(conn, repo_id, [
+        _pr(1, created="2026-06-01T00:00:00Z"),
+    ])
+    provider = _FakeProvider({})  # PR 1 has no comments
+
+    first = retro_signals.fetch_and_cache_comments(conn, provider, repo_id, "o", "r")
+    assert first == 1
+    assert provider.calls == [1]
+
     provider.calls.clear()
     second = retro_signals.fetch_and_cache_comments(conn, provider, repo_id, "o", "r")
     assert second == 0

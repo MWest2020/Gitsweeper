@@ -249,7 +249,32 @@ def test_deliver_help_shows_flags_not_author(runner: CliRunner) -> None:
     assert "--out" in out
     assert "--post" in out
     assert "--forge" in out
+    assert "--stale-days" in out
     assert "--author" not in out
+
+
+def test_deliver_stale_days_passes_through(
+    runner: CliRunner, tmp_path: Path, patched_provider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `deliver` must forward --stale-days into the retro computation so it
+    # agrees with the `retro` command rather than hardcoding the default.
+    db = tmp_path / "gs.sqlite"
+    _seed(db)
+    seen: dict = {}
+    real_build = cli.retro_signals.build_report
+
+    def spy(*args, **kwargs):
+        if "stale_days" in kwargs:
+            seen["stale_days"] = kwargs["stale_days"]
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(cli.retro_signals, "build_report", spy)
+    result = runner.invoke(
+        cli.app,
+        ["deliver", "octocat/hello", "--stale-days", "30", "--db-path", str(db)],
+    )
+    assert result.exit_code == 0, result.stdout + result.stderr
+    assert seen["stale_days"] == 30
 
 
 def test_deliver_slack_stdout(runner: CliRunner, tmp_path: Path, patched_provider) -> None:

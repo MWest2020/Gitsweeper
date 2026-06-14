@@ -46,18 +46,20 @@ def _default_db_path() -> Path:
 
 
 def _split_repo(spec: str) -> tuple[str, str]:
-    # Split on the FIRST slash only: owner = first segment, name = the rest.
+    # Split on every slash: owner = first segment, name = the rest joined back.
     # GitHub/Forgejo names never contain a slash, so `owner/repo` is unchanged.
     # GitLab projects live in (possibly nested) namespaces — `group/sub/project`
     # → owner="group", name="sub/project" — which the GitLab provider URL-encodes
-    # into the full project path.
-    owner, _, name = spec.partition("/")
-    if not owner or not name:
+    # into the full project path. Every segment must be non-empty, so a trailing
+    # or doubled slash ("a/b/", "a//b") is rejected rather than yielding an empty
+    # path component.
+    parts = spec.split("/")
+    if len(parts) < 2 or any(not part for part in parts):
         raise typer.BadParameter(
             "expected owner/repo (GitHub/Forgejo) or group/.../project "
             "(GitLab nested namespaces), e.g. nextcloud/app-certificate-requests"
         )
-    return owner, name
+    return parts[0], "/".join(parts[1:])
 
 
 def _open_db(db_path: Path):
@@ -317,6 +319,11 @@ def deliver(
         "--period",
         help="DORA deployment-frequency bucket: week or month (default)",
     ),
+    stale_days: int = typer.Option(
+        retro_signals.STALE_DAYS,
+        "--stale-days",
+        help="An open PR older than this many days counts as stale (default 14)",
+    ),
     out_format: str = typer.Option(
         "slack",
         "--format",
@@ -401,7 +408,7 @@ def deliver(
         comment_rows,
         repo=repo_full,
         since=since_iso,
-        stale_days=retro_signals.STALE_DAYS,
+        stale_days=stale_days,
     )
 
     meta = {

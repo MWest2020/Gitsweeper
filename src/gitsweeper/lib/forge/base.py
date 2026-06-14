@@ -34,13 +34,25 @@ def normalize_timestamp(value: str | None) -> str | None:
     converted to the equivalent UTC instant. ``None`` and empty strings pass
     through as ``None`` so nullable fields (``merged_at``, ``closed_at``) stay
     nullable.
+
+    Gitea/Forgejo also emit a year-1 "zero time" sentinel (e.g.
+    ``0001-01-01T00:00:00Z``) for an unset timestamp. Converting that to UTC
+    can overflow ``MINYEAR`` (a positive offset pushes it below year 1), and
+    even when it parses it yields a malformed non-zero-padded year. Any parse
+    failure, or a parsed year before 1970, is treated as "unset" and returns
+    ``None``.
     """
     if not value:
         return None
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        if parsed.year < 1970:
+            return None
+        return parsed.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except (ValueError, OverflowError):
+        return None
 
 
 @dataclass(frozen=True)

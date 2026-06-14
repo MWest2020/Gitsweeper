@@ -20,12 +20,21 @@ constants — one per list — so they are auditable and adjustable in one place
 
 from __future__ import annotations
 
-import json
+import re
 import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from gitsweeper.capabilities._pr_fields import (
+    days_between as _days_between,
+)
+from gitsweeper.capabilities._pr_fields import (
+    parse_iso as _parse_iso,
+)
+from gitsweeper.capabilities._pr_fields import (
+    title_of as _title_of,
+)
 from gitsweeper.lib import storage
 from gitsweeper.lib.forge import ForgeProvider
 from gitsweeper.lib.rendering import AnalysisResult
@@ -105,42 +114,22 @@ class RetroReport:
     smooth: list[int]
 
 
-# --- time helpers -----------------------------------------------------------
-
-
-def _parse_iso(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
-
-def _days_between(start: str, end: str) -> float:
-    return (_parse_iso(end) - _parse_iso(start)).total_seconds() / 86400.0
-
-
-def _title_of(raw_payload: str) -> str:
-    """Read the PR title from the stored raw payload (uniform across forges)."""
-    try:
-        parsed = json.loads(raw_payload)
-    except (TypeError, ValueError):
-        return ""
-    title = parsed.get("title") if isinstance(parsed, dict) else None
-    return title if isinstance(title, str) else ""
-
-
 # --- keyword matching -------------------------------------------------------
 
 
 def count_matches(text: str, keywords: Iterable[str]) -> int:
     """Count case-insensitive whole-phrase occurrences of ``keywords`` in ``text``.
 
-    Each keyword is counted by non-overlapping occurrences. Matching is on the
-    raw substring (case-folded) so multi-word phrases like "waiting on" and
-    "loopt vast" match across the space exactly as written. Deterministic and
-    reproducible from the text alone — no network, no LLM.
+    Each keyword is counted by non-overlapping word-boundary matches, so single
+    words match only as whole words ("hack" does not fire on "hackathon") while
+    multi-word phrases like "waiting on" and "loopt vast" still match across the
+    space exactly as written. Deterministic and reproducible from the text alone
+    — no network, no LLM.
     """
-    lowered = text.lower()
     total = 0
     for keyword in keywords:
-        total += lowered.count(keyword.lower())
+        pattern = r"\b" + re.escape(keyword) + r"\b"
+        total += len(re.findall(pattern, text, re.IGNORECASE))
     return total
 
 
@@ -246,14 +235,16 @@ def fetch_and_cache_comments(
     *,
     since: str | None = None,
 ) -> int:
-    """Populate the comments cache for every in-scope PR not already cached.
+    """Populate the comments cache for every in-scope PR not already fetched.
 
     Mirrors the first-response fetch loop: one comment-listing call per PR,
-    skipped when the PR already has cached comments so a re-run does not
-    re-fetch. Returns the number of PRs fetched this call.
+    skipped when the PR's comments were already fetched so a re-run does not
+    re-fetch — including PRs that turned out to have zero comments, which are
+    recorded via a fetched-marker rather than by the presence of comment rows.
+    Returns the number of PRs fetched this call.
     """
     pr_rows = _scoped_pr_rows(conn, repo_id, since)
-    already = storage.list_prs_with_comments(conn, repo_id)
+    already = storage.list_prs_comments_fetched(conn, repo_id)
     fetched = 0
     for pr in pr_rows:
         pr_id = int(pr["id"])
@@ -261,6 +252,7 @@ def fetch_and_cache_comments(
             continue
         comments = list(client.list_issue_comments(owner, name, int(pr["number"])))
         storage.upsert_comments(conn, pr_id, comments)
+        storage.mark_comments_fetched(conn, pr_id)
         fetched += 1
     return fetched
 

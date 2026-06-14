@@ -8,6 +8,23 @@ once there is working code worth tagging.
 
 ## [Unreleased]
 
+### Fixed
+- `2026-06-14` — Fixes from a review of this session's forge/DORA/retro work
+  (no spec changes — code brought in line with the specs/contracts):
+  - retro friction/tech-debt matching is now whole-word (`\b…\b`) instead of
+    raw substring, so "hack" no longer matches "hackathon" etc.
+  - GitLab merged MRs now carry `closed_at` (falls back to `merged_at`),
+    honouring the normalized-model "closed_at non-null for any closed PR".
+  - `normalize_timestamp` guards Gitea/Forgejo's year-1 "zero time" sentinel
+    (was an `OverflowError` crash / malformed year on a positive offset).
+  - `_split_repo` rejects empty path segments again (`a/b/`, `a//b`) while
+    still allowing GitLab nested namespaces.
+  - retro no longer re-fetches comments for zero-comment PRs every run (a
+    `pr_comment_fetches` marker now records fetched-but-empty PRs).
+  - `gitsweeper deliver` gained `--stale-days` so it agrees with `retro`.
+  - extracted the duplicated `parse_iso`/`days_between`/`title_of` helpers
+    into `capabilities/_pr_fields.py`.
+
 ### Added
 - `2026-06-14` — **Scheduled delivery** (`scheduled-delivery` change). A new
   `gitsweeper deliver <repo>` command composes the `dora` and `retro` halves

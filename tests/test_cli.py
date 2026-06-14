@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+import typer
 from typer.testing import CliRunner
 
 from gitsweeper import cli
@@ -133,3 +134,20 @@ def test_since_filter_applied(runner: CliRunner, tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     metrics = dict(payload["rows"])
     assert metrics["count"] == 1  # only PR #2 (merged 2025-01-08)
+
+
+# --- _split_repo: owner/name parsing ---------------------------------------
+
+
+def test_split_repo_simple() -> None:
+    assert cli._split_repo("a/b") == ("a", "b")
+
+
+def test_split_repo_gitlab_nested_namespace() -> None:
+    assert cli._split_repo("g/sub/proj") == ("g", "sub/proj")
+
+
+@pytest.mark.parametrize("spec", ["a/b/", "a//b", "a", "/b", ""])
+def test_split_repo_rejects_empty_segments(spec: str) -> None:
+    with pytest.raises(typer.BadParameter):
+        cli._split_repo(spec)

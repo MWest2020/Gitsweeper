@@ -108,6 +108,60 @@ def test_closed_without_merge_has_null_merged_at() -> None:
     assert pr.closed_at == "2026-06-14T09:00:00Z"
 
 
+def test_merged_mr_closed_at_falls_back_to_merged_at() -> None:
+    # GitLab leaves closed_at null on a merged MR, but base.py's contract says
+    # closed_at is non-null for any closed PR — a merged MR is closed at merge.
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("page") == "1":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "iid": 30,
+                        "id": 2,
+                        "state": "merged",
+                        "created_at": "2026-06-13T05:24:57.317Z",
+                        "merged_at": "2026-06-13T06:07:14.665Z",
+                        "closed_at": None,
+                        "author": {"username": "alice"},
+                    }
+                ],
+            )
+        return _empty_page()
+
+    client, _ = _client(httpx.MockTransport(handler), token="t")
+    [pr] = list(client.list_pull_requests("o", "r"))
+    assert pr.state == "closed"
+    assert pr.merged_at == "2026-06-13T06:07:14Z"
+    assert pr.closed_at == "2026-06-13T06:07:14Z"
+
+
+def test_closed_unmerged_keeps_own_closed_at() -> None:
+    # A closed-without-merge MR keeps its own closed_at, not a merge fallback.
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("page") == "1":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "iid": 31,
+                        "id": 3,
+                        "state": "closed",
+                        "created_at": "2026-06-13T05:24:57.317Z",
+                        "merged_at": None,
+                        "closed_at": "2026-06-14T09:00:00.000Z",
+                        "author": {"username": "bob"},
+                    }
+                ],
+            )
+        return _empty_page()
+
+    client, _ = _client(httpx.MockTransport(handler), token="t")
+    [pr] = list(client.list_pull_requests("o", "r"))
+    assert pr.merged_at is None
+    assert pr.closed_at == "2026-06-14T09:00:00Z"
+
+
 def test_project_path_is_url_encoded() -> None:
     seen: dict[str, str] = {}
 

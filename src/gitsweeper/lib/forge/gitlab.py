@@ -78,13 +78,17 @@ def _to_pull_request(raw: dict[str, Any]) -> ForgePullRequest:
     state = "open" if gl_state == "opened" else "closed"
     merged = gl_state == "merged" or bool(raw.get("merged_at"))
     merged_at = normalize_timestamp(raw.get("merged_at")) if merged else None
+    # A merged MR is closed at merge time even though GitLab leaves `closed_at`
+    # null for it; fall back to merged_at so closed_at is non-null for any
+    # closed PR (base.py's contract).
+    closed_at = normalize_timestamp(raw.get("closed_at")) or merged_at
     author = raw.get("author") or {}
     return ForgePullRequest(
         number=int(raw["iid"]),
         state=state,
         created_at=normalize_timestamp(raw.get("created_at")) or "",
         merged_at=merged_at,
-        closed_at=normalize_timestamp(raw.get("closed_at")),
+        closed_at=closed_at,
         author=author.get("username") or "",
         raw=raw,
     )

@@ -76,6 +76,16 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         UNIQUE (pr_id, created_at, author)
     )
     """,
+    # Marker that a PR's comments were fetched, independent of how many comments
+    # came back. `pr_comments` only holds rows for PRs that HAVE comments, so a
+    # PR with zero comments would otherwise look unfetched and be re-fetched on
+    # every run. One row per fetched PR records that the listing call happened.
+    """
+    CREATE TABLE IF NOT EXISTS pr_comment_fetches (
+        pr_id        INTEGER PRIMARY KEY REFERENCES pull_requests(id),
+        fetched_at   TEXT    NOT NULL
+    )
+    """,
 )
 
 
@@ -244,6 +254,42 @@ def list_prs_with_comments(
     rows = conn.execute(
         "SELECT DISTINCT pr_id FROM pr_comments c "
         "JOIN pull_requests pr ON pr.id = c.pr_id "
+        "WHERE pr.repo_id = ?",
+        (repo_id,),
+    ).fetchall()
+    return {int(r["pr_id"]) for r in rows}
+
+
+def mark_comments_fetched(conn: sqlite3.Connection, pr_id: int) -> None:
+    """Record that a PR's comments were fetched, even if there were none.
+
+    Idempotent: re-marking a PR updates its fetched_at in place. Paired with
+    :func:`list_prs_comments_fetched` so the retro fetch loop can skip a PR it
+    has already fetched regardless of whether that PR has any comment rows."""
+    conn.execute(
+        """
+        INSERT INTO pr_comment_fetches (pr_id, fetched_at)
+        VALUES (?, ?)
+        ON CONFLICT (pr_id) DO UPDATE SET
+            fetched_at = excluded.fetched_at
+        """,
+        (pr_id, _utcnow_iso()),
+    )
+    conn.commit()
+
+
+def list_prs_comments_fetched(
+    conn: sqlite3.Connection,
+    repo_id: int,
+) -> set[int]:
+    """Return the set of PR ids whose comments were already fetched.
+
+    The `retro` fetch loop uses this (not the presence of comment rows) to skip
+    PRs it has fetched so a second run does not re-fetch — including PRs that
+    turned out to have zero comments."""
+    rows = conn.execute(
+        "SELECT cf.pr_id AS pr_id FROM pr_comment_fetches cf "
+        "JOIN pull_requests pr ON pr.id = cf.pr_id "
         "WHERE pr.repo_id = ?",
         (repo_id,),
     ).fetchall()

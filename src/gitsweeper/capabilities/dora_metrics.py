@@ -22,7 +22,6 @@ history, so v1 uses documented proxies (see ``design.md``):
 
 from __future__ import annotations
 
-import json
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -30,6 +29,15 @@ from datetime import UTC, datetime
 
 import polars as pl
 
+from gitsweeper.capabilities._pr_fields import (
+    days_between as _days_between,
+)
+from gitsweeper.capabilities._pr_fields import (
+    parse_iso as _parse_iso,
+)
+from gitsweeper.capabilities._pr_fields import (
+    title_of as _title_of,
+)
 from gitsweeper.lib import storage
 from gitsweeper.lib.rendering import AnalysisResult
 
@@ -173,14 +181,6 @@ class DoraReport:
 # --- time helpers -----------------------------------------------------------
 
 
-def _parse_iso(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
-
-def _days_between(start: str, end: str) -> float:
-    return (_parse_iso(end) - _parse_iso(start)).total_seconds() / 86400.0
-
-
 def _bucket_label(period: str, ts: datetime) -> str:
     if period == "week":
         iso = ts.isocalendar()
@@ -200,16 +200,6 @@ def _percentiles(values: list[float]) -> dict[str, float | None]:
         "p75": float(series.quantile(0.75, interpolation="linear")),
         "p90": float(series.quantile(0.90, interpolation="linear")),
     }
-
-
-def _title_of(raw_payload: str) -> str:
-    """Read the PR title from the stored raw payload (uniform across forges)."""
-    try:
-        parsed = json.loads(raw_payload)
-    except (TypeError, ValueError):
-        return ""
-    title = parsed.get("title") if isinstance(parsed, dict) else None
-    return title if isinstance(title, str) else ""
 
 
 # --- pure computation -------------------------------------------------------

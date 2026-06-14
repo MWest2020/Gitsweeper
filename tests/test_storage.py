@@ -219,3 +219,27 @@ def test_comments_upsert_and_list_with_dedupe(conn: sqlite3.Connection) -> None:
     rows = storage.list_comments(conn, repo_id)
     assert len(rows) == 3
     assert next(r for r in rows if r["author"] == "alice")["body"] == "edited"
+
+
+def test_comment_fetch_marker_independent_of_comment_rows(
+    conn: sqlite3.Connection,
+) -> None:
+    repo_id = storage.get_or_create_repository(conn, "o", "r")
+    storage.upsert_pull_requests(conn, repo_id, [_pr(1), _pr(2)])
+    by_num = {r["number"]: r for r in storage.list_pull_requests(conn, repo_id)}
+
+    # Nothing fetched yet.
+    assert storage.list_prs_comments_fetched(conn, repo_id) == set()
+
+    # Mark PR 1 fetched even though it has zero comment rows.
+    storage.mark_comments_fetched(conn, by_num[1]["id"])
+    assert storage.list_prs_comments_fetched(conn, repo_id) == {by_num[1]["id"]}
+    # The presence-of-comments helper still sees nothing — they are distinct.
+    assert storage.list_prs_with_comments(conn, repo_id) == set()
+
+    # Idempotent: re-marking does not duplicate or error.
+    storage.mark_comments_fetched(conn, by_num[1]["id"])
+    storage.mark_comments_fetched(conn, by_num[2]["id"])
+    assert storage.list_prs_comments_fetched(conn, repo_id) == {
+        by_num[1]["id"], by_num[2]["id"]
+    }
