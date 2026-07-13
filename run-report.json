@@ -1,13 +1,13 @@
 {
-  "role": "builder",
+  "role": "reviewer",
   "change": "apply-docs-contract",
-  "run_id": "builder-apply-docs-contract-20260713-072542",
+  "run_id": "reviewer-apply-docs-contract-20260713-072850",
   "repo": "https://github.com/MWest2020/Gitsweeper.git",
   "verdict": "ok",
   "subtype": "success",
-  "total_cost_usd": "1.2008154999999998",
-  "num_turns": "26",
+  "total_cost_usd": "0.5651515",
+  "num_turns": "15",
   "claude_exit": "0",
-  "finished_at": "2026-07-13T07:28:45Z",
-  "diff_hash": "dff9a889d2ce5ec62d17ef041e7ceae234fd59bd30212e02c4b2f435f2a6590f"
+  "finished_at": "2026-07-13T07:30:37Z",
+  "diff_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
