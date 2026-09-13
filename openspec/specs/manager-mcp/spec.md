@@ -1,7 +1,19 @@
 # manager-mcp Specification
 
 ## Purpose
-TBD - created by archiving change gitsweeper-billbird-mcp. Update Purpose after archive.
+
+Gitsweeper as a tool an agent can call, rather than a CLI a person runs.
+
+The boundary is the whole design: **read-only**. An MCP server that can write is a
+way for a model to act on a repository through a side door, and nothing here needs
+that — the analyses observe.
+
+Two more rules make it usable by something that cannot ask follow-up questions.
+Schemas **declare units and scope**, because "lead time: 3" is a number a model
+will happily misreport; and the tool registry is **fixed and inspectable**, so
+what is callable is a fact you can read rather than something discovered at
+runtime. Configuration errors are lazy and named, so a missing token surfaces as
+that missing token instead of as an empty result.
 ## Requirements
 ### Requirement: MCP server entry point
 

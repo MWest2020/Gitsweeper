@@ -1,7 +1,21 @@
 # scheduled-delivery Specification
 
 ## Purpose
-TBD - created by archiving change scheduled-delivery. Update Purpose after archive.
+
+Getting the numbers to where the team already is, on a schedule, without the tool
+becoming a service.
+
+Two decisions shape this. **Scheduling is external to the command**: cron, a
+timer, a CI job — whatever the team already runs. Building a scheduler in would
+mean Gitsweeper has to be up for the report to happen, and it would be the only
+part of the tool that does.
+
+And **egress is opt-in and explicit**, with the webhook as the single exit and
+never disclosed in output or logs. This is a tool that reads a team's repositories
+and can now send somewhere; making that a deliberate, auditable, single-pointed
+act is what keeps it safe to run anywhere. An **empty window is delivered
+explicitly** for the same reason a quiet bucket is not a NaN: silence should mean
+"nothing happened", not "the job died".
 ## Requirements
 ### Requirement: Compose DORA and retro into one team-level message
 

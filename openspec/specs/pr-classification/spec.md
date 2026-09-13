@@ -1,7 +1,18 @@
 # pr-classification Specification
 
 ## Purpose
-TBD - created by archiving change reusable-process-report. Update Purpose after archive.
+
+Telling apart a pull request the author withdrew from one a maintainer closed.
+
+Both end as "closed without merge", and in a process report they mean opposite
+things: one is a contributor changing their mind, the other is a rejection.
+Counted together they produce a rejection rate that is partly self-service and a
+picture of the project that is simply false.
+
+Separating them costs an extra fetch — the close event carries the actor — and
+the spec makes that enrichment explicit rather than implicit, because an
+un-enriched run must not silently look like an enriched one with different
+numbers.
 ## Requirements
 ### Requirement: Enrich closed-without-merge pull requests with the close-event actor
 

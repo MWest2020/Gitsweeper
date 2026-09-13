@@ -1,7 +1,18 @@
 # kpi-timeseries Specification
 
 ## Purpose
-TBD - created by archiving change portfolio-timeseries-foundation. Update Purpose after archive.
+
+The same measures over time, bucketed, across one or more repositories.
+
+A single number tells you where you are; the series tells you whether that is
+new. Everything else here follows from making the series comparable to itself.
+
+**Empty buckets do not become NaN noise.** A quiet week is a real observation and
+should read as one, not as a hole that breaks a chart or, worse, gets silently
+dropped so the trend line connects across it. And the series honours the same
+scope filters as everything else (`--since`, `--author`, repo selection), because
+a series filtered differently than the number next to it is a comparison waiting
+to mislead.
 ## Requirements
 ### Requirement: Compute time-bucketed KPI series across one or more repositories
 
