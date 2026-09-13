@@ -1,7 +1,22 @@
 # forge-access Specification
 
 ## Purpose
-TBD - created by archiving change forge-abstraction. Update Purpose after archive.
+
+Where the data comes from, behind one interface that does not care which forge
+you use.
+
+Gitsweeper started GitHub-only, and every analysis above this layer was written
+against GitHub's shapes. The merge with Road_to_el_DORA made that untenable: the
+same questions have to be answerable on Forgejo/Codeberg and GitLab, and
+rewriting each analysis three times is how the three copies drift apart. So there
+is one normalised model and one provider interface, and the forge is selected by
+override or host detection.
+
+The requirements that look like plumbing are the ones that decide whether a
+number is true. **Pagination followed to completion** — a metric computed on the
+first page is not wrong-looking, it is quietly low. And **rate-limit signals
+honoured**, because the alternative is a run that stops halfway and reports what
+it managed to get as if it were everything.
 ## Requirements
 ### Requirement: Provide a forge-agnostic provider interface
 

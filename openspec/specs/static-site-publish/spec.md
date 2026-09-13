@@ -1,7 +1,18 @@
 # static-site-publish Specification
 
 ## Purpose
-TBD - created by archiving change static-site-publish. Update Purpose after archive.
+
+A deployable HTML bundle of the analyses, built from the cache alone.
+
+The reason this exists as its own capability is the constraint it keeps:
+**reproducible from cache alone**, with **pre-rendered SVG and no JavaScript**.
+A published report that calls an API at view time is a report that shows
+different numbers to different readers and breaks when a token expires. This one
+is a set of files — it can sit on a static host, be mailed, be archived, and say
+the same thing next year.
+
+Scope is configurable so a bundle can cover one repo or a whole fleet without a
+second tool.
 ## Requirements
 ### Requirement: Produce a deployable HTML+SVG bundle from the cache
 

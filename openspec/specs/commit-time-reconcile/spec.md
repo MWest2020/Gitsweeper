@@ -1,7 +1,18 @@
 # commit-time-reconcile Specification
 
 ## Purpose
-TBD - created by archiving change gitsweeper-billbird-reconcile. Update Purpose after archive.
+
+Comparing the hours in commit footers against what Billbird recorded.
+
+Two records of the same work drift, and the drift is invisible until someone
+invoices. This reads `Time:` footers and issue references straight from the
+commit messages and holds them next to the logged entries.
+
+It is deliberately a **comparison, not a correction**: Gitsweeper reports the
+difference and writes nothing back. Gitsweeper is the analytics side and Billbird
+owns the hours; a tool that silently reconciled would make the authoritative
+record depend on when an analysis last ran. Commits come through `forge-access`
+like everything else, so this works on whichever forge the team uses.
 ## Requirements
 ### Requirement: Extract Time footers from commit messages
 

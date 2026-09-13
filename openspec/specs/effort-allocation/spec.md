@@ -1,7 +1,18 @@
 # effort-allocation Specification
 
 ## Purpose
-TBD - created by archiving change effort-allocation. Update Purpose after archive.
+
+Where effort went: a per-author, per-repo pivot built from pull requests.
+
+This is the view that answers "what has this team actually been working on",
+and it is the one most easily turned into a number about people. The spec keeps
+it usable by being precise about what it does *not* know.
+
+Two requirements do that work. **Enriched and un-enriched closures stay
+distinguishable**, so a pivot never presents guessed classification as observed
+fact. And the **merged rate is computed against an effective denominator** —
+dividing by everything, including PRs whose outcome was never determined, gives a
+rate that moves when your fetching changed rather than when the team did.
 ## Requirements
 ### Requirement: Produce a per-author-per-repo effort-allocation pivot
 

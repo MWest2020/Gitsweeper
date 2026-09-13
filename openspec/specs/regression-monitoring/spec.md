@@ -1,7 +1,18 @@
 # regression-monitoring Specification
 
 ## Purpose
-TBD - created by archiving change regression-monitoring. Update Purpose after archive.
+
+Noticing that a KPI moved, without anyone having to watch the charts.
+
+A dashboard only works while someone looks at it. This turns the series into
+alerts against a **trailing baseline**: the comparison is the team's own recent
+past, not a target somebody picked, so it stays meaningful across teams that work
+at different speeds.
+
+The window and threshold are configurable because the right sensitivity is a
+judgement, not a constant — set it too tight and the alerts get muted, which is
+the same as not having them. Alerts come out as structured rows rather than
+prose, so something downstream can route them.
 ## Requirements
 ### Requirement: Compute trailing-baseline alerts for each moved KPI
 

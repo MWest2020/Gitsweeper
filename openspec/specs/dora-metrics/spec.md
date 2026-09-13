@@ -1,7 +1,20 @@
 # dora-metrics Specification
 
 ## Purpose
-TBD - created by archiving change dora-metrics. Update Purpose after archive.
+
+The four DORA metrics, computed from the pull requests already in the cache.
+
+The point of doing it here rather than with a dedicated tool is that no new data
+collection is needed: deployment frequency, lead time, change failure rate and
+time to restore are all derivable from merges that Gitsweeper already has. That
+keeps the definitions inspectable, which matters more than the numbers.
+
+Two things are deliberate and worth stating. The change failure rate comes from a
+**deterministic corrective-PR heuristic** — it is an approximation, and one you
+can read and disagree with, rather than a number whose provenance is a vendor's
+model. And the metrics are **team-level only**: DORA measures a delivery system,
+and the same arithmetic applied per person measures nothing while looking like it
+measures someone.
 ## Requirements
 ### Requirement: Compute the four DORA metrics from the cached pull requests
 

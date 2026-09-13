@@ -1,7 +1,18 @@
 # pr-process-report Specification
 
 ## Purpose
-TBD - created by archiving change reusable-process-report. Update Purpose after archive.
+
+One shareable markdown file with the whole process picture in it.
+
+The analyses exist separately so they can be composed; this is the composition
+someone actually sends to a team. Hence markdown and a single file — a report
+that needs a tool to read is a report that gets summarised badly in chat.
+
+It **fetches and enriches lazily but explicitly**: a report is expensive in API
+calls, so it does not fetch what no section needs, but it never quietly skips
+enrichment either. A section that silently degraded would be indistinguishable
+from a section that found nothing, and that is the failure mode of every report
+nobody trusts.
 ## Requirements
 ### Requirement: Generate a single shareable markdown report
 

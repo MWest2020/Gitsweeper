@@ -1,7 +1,19 @@
 # retro-signals Specification
 
 ## Purpose
-TBD - created by archiving change retro-signals. Update Purpose after archive.
+
+The things a retro would raise if someone had time to read every thread: stale
+PRs, long discussions, friction, tech-debt markers — and what went smoothly.
+
+Metrics say how fast; these say where it hurt. They are all **deterministic
+counts** over cached comment bodies, not sentiment analysis, and that is the
+design rather than a limitation: a signal you can reproduce and argue with is
+usable in a retro, while a model's opinion about tone is something the room
+either accepts or dismisses whole.
+
+**Surfacing smooth pull requests** belongs here for the same reason. A report
+that only lists friction reads as an indictment, and a team that reads it that
+way stops running it.
 ## Requirements
 ### Requirement: Persist PR comment bodies in a local comments cache
 
